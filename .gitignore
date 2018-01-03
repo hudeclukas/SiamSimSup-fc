@@ -1,0 +1,6 @@
+board/
+model/
+*.ipynb_checkpoints
+*.pyc
+*.swp
+.idea
