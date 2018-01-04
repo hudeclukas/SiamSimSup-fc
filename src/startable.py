@@ -4,15 +4,15 @@ import time
 import network as nw
 import tensorflow as tf
 
-from src import data_loader as dl
+import data_loader as dl
 
 PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_zeros/"
-MODEL_NAME = "first_start"
+MODEL_NAME = "zeros_4conv2fc-dense"
 IMAGE_SIZE=(32,32,3)
 
 def main(_arg_):
     tf.logging.set_verbosity(tf.logging.INFO)
-    siamese = nw.siamese_fc(image_size=IMAGE_SIZE)
+    siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=3)
 
     supsim = dl.SUPSIM(PATH_2_SEG_BIN, 128, 10000, IMAGE_SIZE)
     print("Starting loading data")
@@ -43,12 +43,13 @@ def main(_arg_):
         saver.restore(sess, model_ckpt)
 
     file_writer = tf.summary.FileWriter('board/logs/' + MODEL_NAME, sess.graph)
-
+    # dl.SUPSIM.visualize=True
     if True:
         for epoch in range(5):
             for (batch_1, batch_2, labels), step in supsim.train:
-                l_rate = 0.005 / float(epoch + 1)
-                summary, _, loss_v = sess.run([merged_summary, train_step, siamese.loss], feed_dict={
+                l_rate = 0.002 / float(epoch + 1)
+                summary, _, loss_v = sess.run(
+                    [merged_summary, train_step, siamese.loss], feed_dict={
                     siamese.x1: batch_1,
                     siamese.x2: batch_2,
                     siamese.y: labels,

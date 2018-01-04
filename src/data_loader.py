@@ -1,7 +1,8 @@
 import numpy as np
 import os
 import random
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+from markdown.extensions.sane_lists import SaneUListProcessor
 from skimage import transform
 
 class ObjectSuperpixels:
@@ -9,6 +10,7 @@ class ObjectSuperpixels:
         self.superpixels = []
 
 class SUPSIM:
+    visualize = False
     def __init__(self, path, batch_size=128, max_steps=5000, image_size=None):
         self.batch_size = batch_size
         self.train = SUPSIM.train(path, batch_size, max_steps, image_size)
@@ -52,7 +54,7 @@ class SUPSIM:
                 bf.close()
 
     @staticmethod
-    def next_batch(data, batch_size=None, image_size=None):
+    def next_batch(data, batch_size=None, image_size=None, visualize=False):
         if batch_size == None:
             return []
         neg_size = batch_size
@@ -86,7 +88,16 @@ class SUPSIM:
         # for i in range(batch_size):
         #     batch_s[i] = batch_s_t[indices[i]]
         #     batch_l[i] = batch_l_t[indices[i]]
+        if visualize:
+            SUPSIM.vizualize_batch(batch_s_t_1, batch_s_t_2)
         return batch_s_t_1, batch_s_t_2, batch_l_t
+
+    @staticmethod
+    def vizualize_batch(batch_1, batch_2):
+        viz = [np.concatenate((sup1, sup2), 1) for sup1, sup2 in zip(batch_1, batch_2)]
+        viz = np.vstack(viz)
+        viz = viz.transpose([1, 0, 2])
+        plt.imshow(viz)
 
     class train:
         def __init__(self,path,batch_size=128,max_steps=5000,size=None):
@@ -113,7 +124,8 @@ class SUPSIM:
                 return SUPSIM.next_batch(
                     data=self.data,
                     batch_size=self.batch_size,
-                    image_size=self.image_size
+                    image_size=self.image_size,
+                    visualize=SUPSIM.visualize
                 ), self.current_step
             else:
                 raise StopIteration
@@ -142,7 +154,8 @@ class SUPSIM:
                 return SUPSIM.next_batch(
                     data=self.data,
                     batch_size=self.batch_size,
-                    image_size=self.image_size
+                    image_size=self.image_size,
+                    visualize=SUPSIM.visualize
                 ), self.current_step
             else:
                 raise StopIteration
