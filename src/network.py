@@ -181,7 +181,12 @@ class siamese_fc:
         eucd2 = tf.reduce_sum(tf.pow(tf.subtract(self.network1, self.network2), 2), 1, name="euclid2")
         eucd = tf.sqrt(eucd2, name="euclid")
 
-        tf.summary.histogram('euclidean_distance', eucd)
+        try:
+            tf.check_numerics(eucd, 'Check of the euclid distance (eucd): ')
+        except tf.errors.InvalidArgumentError:
+            print('InvalidArgumentError in euclid distance "eucd"')
+        else:
+            tf.summary.histogram('euclidean_distance', eucd)
 
         y_f = tf.subtract(1.0, y_t, name="1-y")
         half_f = tf.multiply(y_f, 0.5, name="y_f/2")
