@@ -65,12 +65,10 @@ def main(_arg_):
                         os.mkdir(model_name_path)
                     save_path = saver.save(sess, model_name_path + '/model.ckpt')
                     print("Model saved to file %s" % save_path)
-                    x_s, x_l = supsim.next_batch(supsim.test.data,batch_size=6)
-                    x_1 = x_s[0]
-                    x_2 = x_s[1]
+                    x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data,batch_size=6)
                     siamese.training = False
-                    vec1 = siamese.network1.eval({siamese.x1: x_1})
-                    vec2 = siamese.network2.eval({siamese.x2: x_2})
+                    vec1 = siamese.network1.eval({siamese.x1: x_s_1})
+                    vec2 = siamese.network2.eval({siamese.x2: x_s_2})
                     similarity = sess.run(nw.similarity(vec1, vec2))
                     result = list([list(x) for x in zip(similarity, labels)])
                     print(result)
