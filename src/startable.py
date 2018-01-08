@@ -6,8 +6,8 @@ import tensorflow as tf
 
 import data_loader as dl
 
-PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_zeros/"
-MODEL_NAME = "zeros_4conv2fc-dense"
+PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_c3_smp/"
+MODEL_NAME = "color_simple_sup"
 IMAGE_SIZE=(32,32,3)
 
 def main(_arg_):
@@ -60,16 +60,21 @@ def main(_arg_):
                     print("Step: {:04d} loss: {:3.8f}".format(step, loss_v))
 
                 if step % 5000 == 0 and step > 0:
-                    save_path = saver.save(sess, 'model/' + MODEL_NAME + '/model.ckpt')
+                    model_name_path = 'model/' + MODEL_NAME
+                    if not os.path.exists(model_name_path):
+                        os.mkdir(model_name_path)
+                    save_path = saver.save(sess, model_name_path + '/model.ckpt')
                     print("Model saved to file %s" % save_path)
                     x_s, x_l = supsim.next_batch(supsim.test.data,batch_size=6)
                     x_1 = x_s[0]
                     x_2 = x_s[1]
+                    siamese.training = False
                     vec1 = siamese.network1.eval({siamese.x1: x_1})
                     vec2 = siamese.network2.eval({siamese.x2: x_2})
                     similarity = sess.run(nw.similarity(vec1, vec2))
                     result = list([list(x) for x in zip(similarity, labels)])
                     print(result)
+                    siamese.training = True
     else:
         pass
 
