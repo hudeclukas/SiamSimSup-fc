@@ -70,7 +70,11 @@ class SUPSIM:
         pos_s = []
         for i in range(pos_size):
             pos_s.append(random.sample(pos_classes[i].superpixels, 2))
-        pos_s = np.array(pos_s).transpose()
+        pos_s = np.array(pos_s)
+        axes = np.arange(len(pos_s.shape))
+        a,b,*c = axes
+        axes = np.concatenate((np.array((b,a),dtype=int),c)).astype(int)
+        pos_s = np.array(pos_s).transpose(axes)
         pos_s_1 = pos_s[0]
         pos_s_2 = pos_s[1]
         pos_l = np.ones(pos_size, dtype=np.float32)
