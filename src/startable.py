@@ -10,15 +10,16 @@ import network as nw
 import data_loader as dl
 import evaluation_metrics as em
 
-PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_squares/"
+PATH_2_SEG_BIN = "D:/HudecL/Berkeley300/segments_squares"
 MODEL_NAME = "squares_dropout_var"
 IMAGE_SIZE=(32,32,3)
+MAX_ITERS = 20001
 
 def main(_arg_):
     tf.logging.set_verbosity(tf.logging.INFO)
     siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=3)
 
-    supsim = dl.SUPSIM(PATH_2_SEG_BIN, 128, 10001)
+    supsim = dl.SUPSIM(PATH_2_SEG_BIN, 128, MAX_ITERS, IMAGE_SIZE)
     print("Starting loading data")
     start = time.time() * 1000
     supsim.load_data()
@@ -50,9 +51,11 @@ def main(_arg_):
         file_writer = tf.summary.FileWriter('board/logs/' + MODEL_NAME, sess.graph)
         # dl.SUPSIM.visualize=True
         for epoch in range(5):
+            print("Epoch {:01d}".format(epoch))
             for (batch_1, batch_2, labels), step in supsim.train:
-                l_rate = 0.002 / float(epoch + 1)
                 dropout_prob = 0.5 - epoch / 10
+                step = MAX_ITERS * epoch + step
+                l_rate = 0.002 / (2*float(epoch + 1))
                 summary, _, loss_v = sess.run(
                     [merged_summary, train_step, siamese.loss], feed_dict={
                         siamese.x1: batch_1,
@@ -71,7 +74,7 @@ def main(_arg_):
                         os.mkdir(model_name_path)
                     save_path = saver.save(sess, model_name_path + '/model.ckpt')
                     print("Model saved to file %s" % save_path)
-                    x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data,batch_size=6)
+                    x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=30,image_size=IMAGE_SIZE)
                     siamese.training = False
                     vec1 = siamese.network1.eval({siamese.x1: x_s_1})
                     vec2 = siamese.network2.eval({siamese.x2: x_s_2})
@@ -131,7 +134,6 @@ def main(_arg_):
         plt.legend(loc="lower right")
         plt.show()
         print(thr)
-
 
 
 if __name__ == "__main__":
