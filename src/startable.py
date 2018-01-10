@@ -8,9 +8,10 @@ import matplotlib.pyplot as plt
 
 import network as nw
 import data_loader as dl
+import evaluation_metrics as em
 
-PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_c3_smp/"
-MODEL_NAME = "color_smp_15k_x_5e"
+PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_squares/"
+MODEL_NAME = "squares_dropout_var"
 IMAGE_SIZE=(32,32,3)
 
 def main(_arg_):
@@ -45,18 +46,20 @@ def main(_arg_):
     if os.path.exists("model/" + MODEL_NAME + "/checkpoint"):
         saver.restore(sess, model_ckpt)
 
-    if False:
+    if True:
         file_writer = tf.summary.FileWriter('board/logs/' + MODEL_NAME, sess.graph)
         # dl.SUPSIM.visualize=True
         for epoch in range(5):
             for (batch_1, batch_2, labels), step in supsim.train:
                 l_rate = 0.002 / float(epoch + 1)
+                dropout_prob = 0.5 - epoch / 10
                 summary, _, loss_v = sess.run(
                     [merged_summary, train_step, siamese.loss], feed_dict={
                         siamese.x1: batch_1,
                         siamese.x2: batch_2,
                         siamese.y: labels,
-                        learning_rate: l_rate
+                        learning_rate: l_rate,
+                        siamese.dropout_prob: dropout_prob
                     })
                 if step % 10 == 0:
                     file_writer.add_summary(summary, step)
@@ -79,17 +82,29 @@ def main(_arg_):
     else:
         tp = fp = tn = fn = 0
         siamese.training = False
-        all_results = None
+        all_results_siam = None
+        all_results_cosine = None
+        all_results_s_col = None
+        siamese.training = False
         for i in range(5):
             x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=128, image_size=IMAGE_SIZE)
             vec1 = siamese.network1.eval({siamese.x1: x_s_1})
             vec2 = siamese.network2.eval({siamese.x2: x_s_2})
             similarity = sess.run(nw.similarity(vec1, vec2))
+            s_cosine = [em.cosine_similarity(x1, x2) for x1,x2 in zip(x_s_1,x_s_2)]
+            s_color = [em.s_colour(x1, x2) for x1,x2 in zip(x_s_1,x_s_2)]
             result = list(zip(similarity, x_l))
-            if all_results is None:
-                all_results = result
+            print(s_cosine)
+            print(s_color)
+
+            if all_results_siam is None:
+                all_results_siam = result
+                all_results_cosine = s_cosine
+                all_results_s_col = s_color
             else:
-                all_results = np.concatenate((all_results,result))
+                all_results_siam = np.concatenate((all_results_siam,result))
+                all_results_s_col = np.concatenate((all_results_s_col,s_color))
+                all_results_cosine = np.concatenate((all_results_cosine, s_cosine))
             print(result)
             tp += sum(1 for i in result if i[0] < 1 and i[1] == 1)
             fp += sum(1 for i in result if i[0] < 1 and i[1] == 0)
@@ -103,7 +118,7 @@ def main(_arg_):
         print('Precision: {:0.6f} Recall: {:0.6f} Accuracy: {:0.6f} F1: {:0.6f}'.format(precision,recall,accuracy,f1_score))
 
         thr = np.arange(0, 600, 5) / 100
-        tpr,fpr = np.array([tpr_fpr(all_results,th) for th in thr]).transpose()
+        tpr,fpr = np.array([em.tpr_fpr(all_results_siam,th) for th in thr]).transpose()
 
         auc = metrics.auc(fpr,tpr)
         plt.figure()
@@ -117,16 +132,7 @@ def main(_arg_):
         plt.show()
         print(thr)
 
-def tpr_fpr(result, threshold):
-    tp = sum(1 for i in result if i[0] < threshold and i[1] == 1)
-    fp = sum(1 for i in result if i[0] < threshold and i[1] == 0)
-    tn = sum(1 for i in result if i[0] >= threshold and i[1] == 0)
-    fn = sum(1 for i in result if i[0] >= threshold and i[1] == 1)
-    tcond = tp + fn
-    tpr = tp / tcond
-    fcond = tn + fp
-    fpr = tn / fcond
-    return tpr, fpr
+
 
 if __name__ == "__main__":
     tf.app.run()
