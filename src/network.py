@@ -10,7 +10,7 @@ class siamese_fc:
         self.network2 = None
         self._image_size = image_size
         self.training = True
-        self.dropout_prob = tf.placeholder(dtype=tf.float32, shape=None, name="dropout_prob")
+        self.dropout_prob = 0.5
 
 
         with tf.variable_scope("siamese-fc") as scope:

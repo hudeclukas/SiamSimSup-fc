@@ -52,8 +52,9 @@ def main(_arg_):
         # dl.SUPSIM.visualize=True
         for epoch in range(5):
             print("Epoch {:01d}".format(epoch))
+            dropout_prob = 0.5 - epoch / 10
+            siamese.dropout_prob = dropout_prob
             for (batch_1, batch_2, labels), step in supsim.train:
-                dropout_prob = 0.5 - epoch / 10
                 step = MAX_ITERS * epoch + step
                 l_rate = 0.002 / (2*float(epoch + 1))
                 summary, _, loss_v = sess.run(
@@ -61,8 +62,7 @@ def main(_arg_):
                         siamese.x1: batch_1,
                         siamese.x2: batch_2,
                         siamese.y: labels,
-                        learning_rate: l_rate,
-                        siamese.dropout_prob: dropout_prob
+                        learning_rate: l_rate
                     })
                 if step % 10 == 0:
                     file_writer.add_summary(summary, step)
