@@ -12,8 +12,9 @@ import evaluation_metrics as em
 
 PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_c3_smp"
 MODEL_NAME = "squares_first_run"
-IMAGE_SIZE=(32,32,3)
+IMAGE_SIZE = (32, 32, 3)
 MAX_ITERS = 20001
+
 
 def main(_arg_):
     tf.logging.set_verbosity(tf.logging.INFO)
@@ -56,7 +57,7 @@ def main(_arg_):
             siamese.dropout_prob = dropout_prob
             for (batch_1, batch_2, labels), step in supsim.train:
                 step = MAX_ITERS * epoch + step
-                l_rate = 0.002 / (2*float(epoch + 1))
+                l_rate = 0.002 / (2 * float(epoch + 1))
                 summary, _, loss_v = sess.run(
                     [merged_summary, train_step, siamese.loss], feed_dict={
                         siamese.x1: batch_1,
@@ -74,7 +75,7 @@ def main(_arg_):
                         os.mkdir(model_name_path)
                     save_path = saver.save(sess, model_name_path + '/model.ckpt')
                     print("Model saved to file %s" % save_path)
-                    x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=30,image_size=IMAGE_SIZE)
+                    x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=30, image_size=IMAGE_SIZE)
                     siamese.training = False
                     vec1 = siamese.network1.eval({siamese.x1: x_s_1})
                     vec2 = siamese.network2.eval({siamese.x2: x_s_2})
@@ -94,8 +95,8 @@ def main(_arg_):
             vec1 = siamese.network1.eval({siamese.x1: x_s_1})
             vec2 = siamese.network2.eval({siamese.x2: x_s_2})
             similarity = sess.run(nw.similarity(vec1, vec2))
-            s_cosine = [em.cosine_similarity(x1, x2) for x1,x2 in zip(x_s_1,x_s_2)]
-            s_color = [em.s_colour(x1, x2) for x1,x2 in zip(x_s_1,x_s_2)]
+            s_cosine = [em.cosine_similarity(x1, x2) for x1, x2 in zip(x_s_1, x_s_2)]
+            s_color = [em.s_colour(x1, x2) for x1, x2 in zip(x_s_1, x_s_2)]
             result = list(zip(similarity, x_l))
             print(s_cosine)
             print(s_color)
@@ -105,8 +106,8 @@ def main(_arg_):
                 all_results_cosine = s_cosine
                 all_results_s_col = s_color
             else:
-                all_results_siam = np.concatenate((all_results_siam,result))
-                all_results_s_col = np.concatenate((all_results_s_col,s_color))
+                all_results_siam = np.concatenate((all_results_siam, result))
+                all_results_s_col = np.concatenate((all_results_s_col, s_color))
                 all_results_cosine = np.concatenate((all_results_cosine, s_cosine))
             print(result)
             tp += sum(1 for i in result if i[0] < 1 and i[1] == 1)
@@ -116,31 +117,73 @@ def main(_arg_):
         recall = tp / (tp + fn)
         precision = tp / (tp + fp)
         accuracy = (tp + tn) / (tp + fp + tn + fn)
-        f1_score = 2*(precision*recall)/(precision+recall)
+        f1_score = 2 * (precision * recall) / (precision + recall)
 
-        print('Precision: {:0.6f} Recall: {:0.6f} Accuracy: {:0.6f} F1: {:0.6f}'.format(precision,recall,accuracy,f1_score))
+        print('Precision: {:0.6f} Recall: {:0.6f} Accuracy: {:0.6f} F1: {:0.6f}'.format(precision, recall, accuracy,
+                                                                                        f1_score))
 
         all_results_s_col = np.stack((all_results_s_col, all_results_siam.transpose()[1]))
         all_results_cosine = np.stack((all_results_cosine, all_results_siam.transpose()[1]))
         thr = np.arange(0, 600, 1) / 100
-        tpr,fpr = np.array([em.tpr_fpr(all_results_siam,th) for th in thr]).transpose()
-        tpr_s,fpr_s = np.array([em.tpr_fpr(all_results_s_col,th,True) for th in thr]).transpose()
-        tpr_c,fpr_c = np.array([em.tpr_fpr(all_results_cosine,th,True) for th in thr]).transpose()
-        auc = metrics.auc(fpr,tpr)
-        auc_s = metrics.auc(fpr_s,tpr_s)
-        auc_c = metrics.auc(fpr_c,tpr_c)
+        tpr, fpr = np.array([em.tpr_fpr(all_results_siam, th) for th in thr]).transpose()
+        tpr_s, fpr_s = np.array([em.tpr_fpr(all_results_s_col, th, True) for th in thr]).transpose()
+        tpr_c, fpr_c = np.array([em.tpr_fpr(all_results_cosine, th, True) for th in thr]).transpose()
+        auc = metrics.auc(fpr, tpr)
+        auc_s = metrics.auc(fpr_s, tpr_s)
+        auc_c = metrics.auc(fpr_c, tpr_c)
         plt.figure()
-        plt.plot(fpr,tpr ,color='darkorange',label='ROC Siam squares aoc: {:0.3f}'.format(auc))
-        plt.plot(fpr_s,tpr_s,color='darkgreen',label='ROC S_color squares aoc: {:0.3f}'.format(auc_s))
-        plt.plot(fpr_c,tpr_c ,color='red',label='ROC S_cosine squares aoc: {:0.3f}'.format(auc_c))
-        plt.plot([1,0],[0,1], color='navy', linestyle='--')
-        plt.xlim([0.0,1.0])
-        plt.ylim([0.0,1.05])
+        plt.plot(fpr, tpr, color='darkorange', label='ROC Siam squares aoc: {:0.3f}'.format(auc))
+        plt.plot(fpr_s, tpr_s, color='darkgreen', label='ROC S_color squares aoc: {:0.3f}'.format(auc_s))
+        plt.plot(fpr_c, tpr_c, color='red', label='ROC S_cosine squares aoc: {:0.3f}'.format(auc_c))
+        plt.plot([1, 0], [0, 1], color='navy', linestyle='--')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
         plt.legend(loc="lower right")
         plt.show()
         print(thr)
+
+        image_file = [i for i in supsim.test.images if i.name == 'segment_227092_0.sup']
+        compare_neighbor_object(siamese, image_file[0], sess)
+
+
+def compare_neighbor_object(siamese: nw.siamese_fc, image_data: dl.ImageObjects, sess):
+    print('File {:s} objects similarity'.format(image_data.name))
+    tp = tn = fp = fn = 0
+
+    for i in range(len(image_data.objects)-1):
+        x2 = image_data.objects[i].superpixels
+        x2 = dl.resize_batch_images(x2, IMAGE_SIZE)
+        for si in image_data.objects[i].superpixels:
+            x1 = [si] * len(image_data.objects[i].superpixels)
+            x1 = dl.resize_batch_images(x1, IMAGE_SIZE)
+            vec1 = siamese.network1.eval({siamese.x1: x1})
+            vec2 = siamese.network2.eval({siamese.x2: x2})
+            similarity = sess.run(nw.similarity(vec1, vec2))
+            print('Inner similarity of object {:d}: '.format(i))
+            print(similarity)
+            tp += sum(1 for i in similarity if i < 1)
+            fn += sum(1 for i in similarity if i >= 1)
+
+        for j in range(i+1, len(image_data.objects)):
+            for sj in image_data.objects[j].superpixels:
+                x1 = [sj] * len(x2)
+                x1 = dl.resize_batch_images(x1, IMAGE_SIZE)
+                vec1 = siamese.network1.eval({siamese.x1: x1})
+                vec2 = siamese.network2.eval({siamese.x2: x2})
+                similarity = sess.run(nw.similarity(vec1, vec2))
+                print('Outer similarity of objects i {:d} j {:d}: '.format(i, j))
+                print(similarity)
+                fp += sum(1 for i in similarity if i < 1)
+                tn += sum(1 for i in similarity if i >= 1)
+
+    recall = tp / (tp + fn)
+    precision = tp / (tp + fp)
+    accuracy = (tp + tn) / (tp + fp + tn + fn)
+    f1_score = 2 * (precision * recall) / (precision + recall)
+
+    print('Precision: {:0.6f} Recall: {:0.6f} Accuracy: {:0.6f} F1: {:0.6f}'.format(precision, recall, accuracy, f1_score))
 
 
 if __name__ == "__main__":

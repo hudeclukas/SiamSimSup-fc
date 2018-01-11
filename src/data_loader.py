@@ -5,6 +5,13 @@ import matplotlib.pyplot as plt
 from markdown.extensions.sane_lists import SaneUListProcessor
 from skimage import transform
 
+def resize_batch_images(batch, image_size: tuple) -> np.ndarray:
+    return np.asarray([transform.resize(image, image_size, mode="reflect") for image in batch])
+
+class ImageObjects:
+    def __init__(self):
+        self.objects = []
+        self.name = ''
 class ObjectSuperpixels:
     def __init__(self):
         self.superpixels = []
@@ -34,24 +41,34 @@ class SUPSIM:
             return
         files = os.listdir(abspath)
         for file in files:
-            with open(os.path.join(abspath, file), "rb") as bf:
-                objs = int.from_bytes(bf.read(4), byteorder="little", signed=False)
-                for o in range(objs):
-                    obj_sups = ObjectSuperpixels()
-                    sups = int.from_bytes(bf.read(4), byteorder="little", signed=False)
-                    for s in range(sups):
-                        rows = int.from_bytes(bf.read(4), byteorder="little", signed=False)
-                        cols = int.from_bytes(bf.read(4), byteorder="little", signed=False)
-                        data = np.empty(shape=[rows, cols, 3], dtype=np.ubyte)
-                        bf.readinto(data.data)
-                        data = (data / 255).astype(np.float32)
-                        # plt.imshow(data)
-                        obj_sups.superpixels.append(data)
-                    if train:
-                        self.train.append(obj_sups)
-                    elif test:
-                        self.test.append(obj_sups)
-                bf.close()
+            img_objs = ImageObjects()
+            img_objs.name = file
+            try:
+                with open(os.path.join(abspath, file), "rb") as bf:
+                    objs = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                    for o in range(objs):
+                        obj_sups = ObjectSuperpixels()
+                        sups = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                        for s in range(sups):
+                            rows = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                            cols = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                            data = np.empty(shape=[rows, cols, 3], dtype=np.ubyte)
+                            bf.readinto(data.data)
+                            data = (data / 255).astype(np.float32)
+                            # plt.imshow(data)
+                            obj_sups.superpixels.append(data)
+                            if train:
+                                self.train.append(obj_sups)
+                            elif test:
+                                self.test.append(obj_sups)
+                        img_objs.objects.append(obj_sups)
+                    bf.close()
+                if train:
+                    self.train.add_object(img_objs)
+                elif test:
+                    self.test.add_object(img_objs)
+            except IOError:
+                print("File {:s} does not exist".format(os.path.join(abspath, file)))
 
     @staticmethod
     def next_batch(data, batch_size=None, image_size=None, visualize=False):
@@ -82,8 +99,8 @@ class SUPSIM:
         batch_s_t_2 = np.concatenate((neg_s_2, pos_s_2))
         batch_l_t = np.concatenate((neg_l, pos_l))
         if not image_size == None:
-            batch_s_t_1 = np.asarray([transform.resize(image, image_size, mode="reflect") for image in batch_s_t_1])
-            batch_s_t_2 = np.asarray([transform.resize(image, image_size, mode="reflect") for image in batch_s_t_2])
+            batch_s_t_1 = resize_batch_images(batch_s_t_1, image_size)
+            batch_s_t_2 = resize_batch_images(batch_s_t_2, image_size)
             # zeros[0:twos.shape[0],0:twos.shape[1]] = twos
         # indices = np.arange(batch_size, dtype=np.int32)
         # random.shuffle(indices)
@@ -108,11 +125,15 @@ class SUPSIM:
             self.abs_path = os.path.abspath(path) + "\\train"
             self.batch_size = batch_size
             self.max_steps = max_steps
+            self.images = []
             self.data = []
             self.image_size=size
 
         def append(self, o):
             self.data.append(o)
+
+        def add_object(self, o):
+            self.images.append(o)
 
         def __iter__(self):
             self.current_step = 0
@@ -140,10 +161,14 @@ class SUPSIM:
             self.batch_size = batch_size
             self.max_steps = max_steps
             self.data = []
+            self.images = []
             self.image_size=size
 
         def append(self, o):
             self.data.append(o)
+
+        def add_object(self, o):
+            self.images.append(o)
 
         def __iter__(self):
             self.current_step = 0

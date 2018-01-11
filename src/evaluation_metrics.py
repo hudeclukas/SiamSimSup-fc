@@ -89,3 +89,4 @@ def color_histogram(im1, bins, range, multiply_with_color=False):
     else:
         hist1 = np.stack((hist_r, hist_g, hist_b))
         return hist1, range_out
+
