@@ -12,7 +12,6 @@ class siamese_fc:
         self.training = True
         self.dropout_prob = 0.5
 
-
         with tf.variable_scope("siamese-fc") as scope:
             self.network1 = self._network_slim(self.x1)
             scope.reuse_variables()
@@ -132,7 +131,7 @@ class siamese_fc:
         dropout = slim.dropout(
             fc1,
             scope='dropout',
-            keep_prob=self.dropout_prob,
+            # keep_prob=self.dropout_prob,
             is_training=self.training
         )
         fc2 = slim.conv2d(

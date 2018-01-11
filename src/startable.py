@@ -10,8 +10,8 @@ import network as nw
 import data_loader as dl
 import evaluation_metrics as em
 
-PATH_2_SEG_BIN = "D:/HudecL/Berkeley300/segments_squares"
-MODEL_NAME = "squares_dropout_var"
+PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_c3_smp"
+MODEL_NAME = "squares_first_run"
 IMAGE_SIZE=(32,32,3)
 MAX_ITERS = 20001
 
@@ -47,7 +47,7 @@ def main(_arg_):
     if os.path.exists("model/" + MODEL_NAME + "/checkpoint"):
         saver.restore(sess, model_ckpt)
 
-    if True:
+    if False:
         file_writer = tf.summary.FileWriter('board/logs/' + MODEL_NAME, sess.graph)
         # dl.SUPSIM.visualize=True
         for epoch in range(5):
@@ -120,12 +120,19 @@ def main(_arg_):
 
         print('Precision: {:0.6f} Recall: {:0.6f} Accuracy: {:0.6f} F1: {:0.6f}'.format(precision,recall,accuracy,f1_score))
 
-        thr = np.arange(0, 600, 5) / 100
+        all_results_s_col = np.stack((all_results_s_col, all_results_siam.transpose()[1]))
+        all_results_cosine = np.stack((all_results_cosine, all_results_siam.transpose()[1]))
+        thr = np.arange(0, 600, 1) / 100
         tpr,fpr = np.array([em.tpr_fpr(all_results_siam,th) for th in thr]).transpose()
-
+        tpr_s,fpr_s = np.array([em.tpr_fpr(all_results_s_col,th,True) for th in thr]).transpose()
+        tpr_c,fpr_c = np.array([em.tpr_fpr(all_results_cosine,th,True) for th in thr]).transpose()
         auc = metrics.auc(fpr,tpr)
+        auc_s = metrics.auc(fpr_s,tpr_s)
+        auc_c = metrics.auc(fpr_c,tpr_c)
         plt.figure()
-        plt.plot(fpr,tpr ,color='darkorange',label='ROC squares aoc: {:0.3f}'.format(auc))
+        plt.plot(fpr,tpr ,color='darkorange',label='ROC Siam squares aoc: {:0.3f}'.format(auc))
+        plt.plot(fpr_s,tpr_s,color='darkgreen',label='ROC S_color squares aoc: {:0.3f}'.format(auc_s))
+        plt.plot(fpr_c,tpr_c ,color='red',label='ROC S_cosine squares aoc: {:0.3f}'.format(auc_c))
         plt.plot([1,0],[0,1], color='navy', linestyle='--')
         plt.xlim([0.0,1.0])
         plt.ylim([0.0,1.05])
