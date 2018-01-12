@@ -10,8 +10,8 @@ import network as nw
 import data_loader as dl
 import evaluation_metrics as em
 
-PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_c3_smp"
-MODEL_NAME = "squares_first_run"
+PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_squares"
+MODEL_NAME = "squares_grayscale"
 IMAGE_SIZE = (32, 32, 3)
 MAX_ITERS = 20001
 
@@ -20,7 +20,7 @@ def main(_arg_):
     tf.logging.set_verbosity(tf.logging.INFO)
     siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=3)
 
-    supsim = dl.SUPSIM(PATH_2_SEG_BIN, 128, MAX_ITERS, IMAGE_SIZE)
+    supsim = dl.SUPSIM(PATH_2_SEG_BIN, 128, MAX_ITERS, IMAGE_SIZE, True)
     print("Starting loading data")
     start = time.time() * 1000
     supsim.load_data()
@@ -48,7 +48,7 @@ def main(_arg_):
     if os.path.exists("model/" + MODEL_NAME + "/checkpoint"):
         saver.restore(sess, model_ckpt)
 
-    if False:
+    if True:
         file_writer = tf.summary.FileWriter('board/logs/' + MODEL_NAME, sess.graph)
         # dl.SUPSIM.visualize=True
         for epoch in range(5):
@@ -144,46 +144,49 @@ def main(_arg_):
         plt.show()
         print(thr)
 
-        image_file = [i for i in supsim.test.images if i.name == 'segment_227092_0.sup']
-        compare_neighbor_object(siamese, image_file[0], sess)
+        image_data = [i for i in supsim.test.images if i.name == 'segment_41069_0.sup'][0]
 
+        print('File {:s} objects similarity'.format(image_data.name))
+        tp = tn = fp = fn = 0
 
-def compare_neighbor_object(siamese: nw.siamese_fc, image_data: dl.ImageObjects, sess):
-    print('File {:s} objects similarity'.format(image_data.name))
-    tp = tn = fp = fn = 0
-
-    for i in range(len(image_data.objects)-1):
-        x2 = image_data.objects[i].superpixels
-        x2 = dl.resize_batch_images(x2, IMAGE_SIZE)
-        for si in image_data.objects[i].superpixels:
-            x1 = [si] * len(image_data.objects[i].superpixels)
-            x1 = dl.resize_batch_images(x1, IMAGE_SIZE)
-            vec1 = siamese.network1.eval({siamese.x1: x1})
-            vec2 = siamese.network2.eval({siamese.x2: x2})
-            similarity = sess.run(nw.similarity(vec1, vec2))
-            print('Inner similarity of object {:d}: '.format(i))
-            print(similarity)
-            tp += sum(1 for i in similarity if i < 1)
-            fn += sum(1 for i in similarity if i >= 1)
-
-        for j in range(i+1, len(image_data.objects)):
-            for sj in image_data.objects[j].superpixels:
-                x1 = [sj] * len(x2)
+        for i in range(len(image_data.objects)-1):
+            x2 = image_data.objects[i].superpixels
+            x2 = dl.resize_batch_images(x2, IMAGE_SIZE)
+            for si in image_data.objects[i].superpixels:
+                x1 = [si] * len(image_data.objects[i].superpixels)
                 x1 = dl.resize_batch_images(x1, IMAGE_SIZE)
                 vec1 = siamese.network1.eval({siamese.x1: x1})
                 vec2 = siamese.network2.eval({siamese.x2: x2})
                 similarity = sess.run(nw.similarity(vec1, vec2))
-                print('Outer similarity of objects i {:d} j {:d}: '.format(i, j))
+                print('Inner similarity of object {:d}: '.format(i))
                 print(similarity)
-                fp += sum(1 for i in similarity if i < 1)
-                tn += sum(1 for i in similarity if i >= 1)
+                tp += sum(1 for i in similarity if i < 1)
+                fn += sum(1 for i in similarity if i >= 1)
+                del(x1)
+                del(vec1)
+                del(vec2)
+                del (similarity)
+            for j in range(i+1, len(image_data.objects)):
+                for sj in image_data.objects[j].superpixels:
+                    x1 = [sj] * len(x2)
+                    x1 = dl.resize_batch_images(x1, IMAGE_SIZE)
+                    vec1 = siamese.network1.eval({siamese.x1: x1})
+                    vec2 = siamese.network2.eval({siamese.x2: x2})
+                    similarity = sess.run(nw.similarity(vec1, vec2))
+                    print('Outer similarity of objects i {:d} j {:d}: '.format(i, j))
+                    print(similarity)
+                    fp += sum(1 for i in similarity if i < 1)
+                    tn += sum(1 for i in similarity if i >= 1)
+                    del(x1)
+                    del(vec1)
+                    del(vec2)
+                    del(similarity)
+        recall = tp / (tp + fn)
+        precision = tp / (tp + fp)
+        accuracy = (tp + tn) / (tp + fp + tn + fn)
+        f1_score = 2 * (precision * recall) / (precision + recall)
 
-    recall = tp / (tp + fn)
-    precision = tp / (tp + fp)
-    accuracy = (tp + tn) / (tp + fp + tn + fn)
-    f1_score = 2 * (precision * recall) / (precision + recall)
-
-    print('Precision: {:0.6f} Recall: {:0.6f} Accuracy: {:0.6f} F1: {:0.6f}'.format(precision, recall, accuracy, f1_score))
+        print('Precision: {:0.6f} Recall: {:0.6f} Accuracy: {:0.6f} F1: {:0.6f}'.format(precision, recall, accuracy, f1_score))
 
 
 if __name__ == "__main__":

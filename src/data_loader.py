@@ -2,8 +2,9 @@ import numpy as np
 import os
 import random
 import matplotlib.pyplot as plt
-from markdown.extensions.sane_lists import SaneUListProcessor
+
 from skimage import transform
+from skimage import color
 
 def resize_batch_images(batch, image_size: tuple) -> np.ndarray:
     return np.asarray([transform.resize(image, image_size, mode="reflect") for image in batch])
@@ -18,10 +19,10 @@ class ObjectSuperpixels:
 
 class SUPSIM:
     visualize = False
-    def __init__(self, path, batch_size=128, max_steps=5000, image_size=None):
+    def __init__(self, path, batch_size=128, max_steps=5000, image_size=None, use_grayscale=False):
         self.batch_size = batch_size
-        self.train = SUPSIM.train(path, batch_size, max_steps, image_size)
-        self.test = SUPSIM.test(path, batch_size, max_steps, image_size)
+        self.train = SUPSIM.train(path, batch_size, max_steps, image_size, use_grayscale)
+        self.test = SUPSIM.test(path, batch_size, max_steps, image_size, use_grayscale)
         self.max_steps = max_steps
 
     def set_path(self, path):
@@ -71,7 +72,7 @@ class SUPSIM:
                 print("File {:s} does not exist".format(os.path.join(abspath, file)))
 
     @staticmethod
-    def next_batch(data, batch_size=None, image_size=None, visualize=False):
+    def next_batch(data, batch_size=None, image_size=None, visualize=False, use_grayscale=False):
         if batch_size == None:
             return []
         neg_size = batch_size
@@ -101,14 +102,15 @@ class SUPSIM:
         if not image_size == None:
             batch_s_t_1 = resize_batch_images(batch_s_t_1, image_size)
             batch_s_t_2 = resize_batch_images(batch_s_t_2, image_size)
-            # zeros[0:twos.shape[0],0:twos.shape[1]] = twos
-        # indices = np.arange(batch_size, dtype=np.int32)
-        # random.shuffle(indices)
-        # batch_s = np.zeros([batch_size])
-        # batch_l = np.zeros([batch_size])
-        # for i in range(batch_size):
-        #     batch_s[i] = batch_s_t[indices[i]]
-        #     batch_l[i] = batch_l_t[indices[i]]
+
+        if use_grayscale:
+            neg_size_h = int(neg_pairs_count / 2)
+            pos_size_h = int(pos_size / 2)
+            batch_s_t_1[neg_size_h:neg_pairs_count] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_1[neg_size_h:neg_pairs_count]]
+            batch_s_t_2[neg_size_h:neg_pairs_count] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_2[neg_size_h:neg_pairs_count]]
+            batch_s_t_1[neg_pairs_count+pos_size_h:batch_size] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_1[neg_pairs_count+pos_size_h:batch_size]]
+            batch_s_t_2[neg_pairs_count+pos_size_h:batch_size] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_2[neg_pairs_count+pos_size_h:batch_size]]
+
         if visualize:
             SUPSIM.vizualize_batch(batch_s_t_1, batch_s_t_2)
         return batch_s_t_1, batch_s_t_2, batch_l_t
@@ -121,13 +123,14 @@ class SUPSIM:
         plt.imshow(viz)
 
     class train:
-        def __init__(self,path,batch_size=128,max_steps=5000,size=None):
+        def __init__(self,path,batch_size=128,max_steps=5000,size=None, grayscale=False):
             self.abs_path = os.path.abspath(path) + "\\train"
             self.batch_size = batch_size
             self.max_steps = max_steps
             self.images = []
             self.data = []
             self.image_size=size
+            self.use_grayscale = grayscale
 
         def append(self, o):
             self.data.append(o)
@@ -150,19 +153,21 @@ class SUPSIM:
                     data=self.data,
                     batch_size=self.batch_size,
                     image_size=self.image_size,
-                    visualize=SUPSIM.visualize
+                    visualize=SUPSIM.visualize,
+                    use_grayscale=self.use_grayscale
                 ), self.current_step
             else:
                 raise StopIteration
 
     class test:
-        def __init__(self,path,batch_size=128,max_steps=5000,size=None):
+        def __init__(self,path,batch_size=128,max_steps=5000,size=None, grayscale=False):
             self.abs_path = os.path.abspath(path) + "\\test"
             self.batch_size = batch_size
             self.max_steps = max_steps
             self.data = []
             self.images = []
             self.image_size=size
+            self.use_grayscale = grayscale
 
         def append(self, o):
             self.data.append(o)
@@ -184,7 +189,8 @@ class SUPSIM:
                     data=self.data,
                     batch_size=self.batch_size,
                     image_size=self.image_size,
-                    visualize=SUPSIM.visualize
+                    visualize=SUPSIM.visualize,
+                    use_grayscale=self.use_grayscale
                 ), self.current_step
             else:
                 raise StopIteration
