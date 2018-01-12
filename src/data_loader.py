@@ -3,19 +3,38 @@ import os
 import random
 import matplotlib.pyplot as plt
 
+from array import array
+
 from skimage import transform
 from skimage import color
 
-def resize_batch_images(batch, image_size: tuple) -> np.ndarray:
+def resize_batch_images(batch: list, image_size: tuple) -> np.ndarray:
     return np.asarray([transform.resize(image, image_size, mode="reflect") for image in batch])
 
 class ImageObjects:
     def __init__(self):
         self.objects = []
         self.name = ''
+
+    def write_similarities_to_file(self, path:str, labels_order:list):
+        parent_dir = os.path.dirname(path)
+        if not os.path.exists(parent_dir):
+            os.mkdir(parent_dir)
+        with open(path, mode='wb') as bf:
+            lb = array('i',labels_order)
+            lb.tofile(bf)
+            for i in range(len(self.objects)):
+                for j in range(len(self.objects[i].labels)):
+                    sim = array('d',self.objects[i].similarity[j])
+                    sim.tofile(bf)
+            bf.close()
+
+
 class ObjectSuperpixels:
     def __init__(self):
         self.superpixels = []
+        self.labels = []
+        self.similarity = []
 
 class SUPSIM:
     visualize = False
@@ -51,6 +70,9 @@ class SUPSIM:
                         obj_sups = ObjectSuperpixels()
                         sups = int.from_bytes(bf.read(4), byteorder="little", signed=False)
                         for s in range(sups):
+                            if file.endswith('.supl'):
+                                label = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                                obj_sups.labels.append(label)
                             rows = int.from_bytes(bf.read(4), byteorder="little", signed=False)
                             cols = int.from_bytes(bf.read(4), byteorder="little", signed=False)
                             data = np.empty(shape=[rows, cols, 3], dtype=np.ubyte)

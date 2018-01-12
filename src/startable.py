@@ -10,7 +10,8 @@ import network as nw
 import data_loader as dl
 import evaluation_metrics as em
 
-PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_squares"
+PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_c3+labels"
+PATH_2_SIMILARITIES = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_c3+labels/similarities.sim"
 MODEL_NAME = "squares_grayscale"
 IMAGE_SIZE = (32, 32, 3)
 MAX_ITERS = 20001
@@ -48,7 +49,7 @@ def main(_arg_):
     if os.path.exists("model/" + MODEL_NAME + "/checkpoint"):
         saver.restore(sess, model_ckpt)
 
-    if True:
+    if False:
         file_writer = tf.summary.FileWriter('board/logs/' + MODEL_NAME, sess.graph)
         # dl.SUPSIM.visualize=True
         for epoch in range(5):
@@ -144,50 +145,72 @@ def main(_arg_):
         plt.show()
         print(thr)
 
-        image_data = [i for i in supsim.test.images if i.name == 'segment_41069_0.sup'][0]
+        image_data = [i for i in supsim.test.images if i.name == 'segments_41069_0.supl'][0]
 
         print('File {:s} objects similarity'.format(image_data.name))
-        tp = tn = fp = fn = 0
 
-        for i in range(len(image_data.objects)-1):
-            x2 = image_data.objects[i].superpixels
-            x2 = dl.resize_batch_images(x2, IMAGE_SIZE)
-            for si in image_data.objects[i].superpixels:
-                x1 = [si] * len(image_data.objects[i].superpixels)
-                x1 = dl.resize_batch_images(x1, IMAGE_SIZE)
-                vec1 = siamese.network1.eval({siamese.x1: x1})
-                vec2 = siamese.network2.eval({siamese.x2: x2})
+
+        batch_of_all_patches = dl.resize_batch_images([j for i in image_data.objects for j in i.superpixels], IMAGE_SIZE)
+        batch_of_all_labels = [j for i in image_data.objects for j in i.labels]
+
+        for i in range(len(image_data.objects)):
+            print('Object {:d}/{:d}'.format(i+1,len(image_data.objects)))
+            for j in range(len(image_data.objects[i].superpixels)):
+                sups_count = len(image_data.objects[i].labels)
+                print('\t{:d}/{:d} Superpixel: {:d} '.format(j+1, sups_count, image_data.objects[i].labels[j]))
+                batch_of_one_patch = dl.resize_batch_images([image_data.objects[i].superpixels[j]] * len(batch_of_all_patches),IMAGE_SIZE)
+                vec1 = siamese.network1.eval({siamese.x1: batch_of_all_patches})
+                vec2 = siamese.network2.eval({siamese.x2: batch_of_one_patch})
                 similarity = sess.run(nw.similarity(vec1, vec2))
-                print('Inner similarity of object {:d}: '.format(i))
-                print(similarity)
-                tp += sum(1 for i in similarity if i < 1)
-                fn += sum(1 for i in similarity if i >= 1)
-                del(x1)
+                image_data.objects[i].similarity.append(similarity)
                 del(vec1)
                 del(vec2)
                 del (similarity)
-            for j in range(i+1, len(image_data.objects)):
-                for sj in image_data.objects[j].superpixels:
-                    x1 = [sj] * len(x2)
+
+        image_data.write_similarities_to_file(PATH_2_SIMILARITIES, batch_of_all_labels)
+
+        if False:
+            tp = tn = fp = fn = 0
+
+            for i in range(len(image_data.objects) - 1):
+                x2 = image_data.objects[i].superpixels
+                x2 = dl.resize_batch_images(x2, IMAGE_SIZE)
+                for si in image_data.objects[i].superpixels:
+                    x1 = [si] * len(image_data.objects[i].superpixels)
                     x1 = dl.resize_batch_images(x1, IMAGE_SIZE)
                     vec1 = siamese.network1.eval({siamese.x1: x1})
                     vec2 = siamese.network2.eval({siamese.x2: x2})
                     similarity = sess.run(nw.similarity(vec1, vec2))
-                    print('Outer similarity of objects i {:d} j {:d}: '.format(i, j))
+                    print('Inner similarity of object {:d}: '.format(i))
                     print(similarity)
-                    fp += sum(1 for i in similarity if i < 1)
-                    tn += sum(1 for i in similarity if i >= 1)
-                    del(x1)
-                    del(vec1)
-                    del(vec2)
-                    del(similarity)
-        recall = tp / (tp + fn)
-        precision = tp / (tp + fp)
-        accuracy = (tp + tn) / (tp + fp + tn + fn)
-        f1_score = 2 * (precision * recall) / (precision + recall)
+                    tp += sum(1 for i in similarity if i < 1)
+                    fn += sum(1 for i in similarity if i >= 1)
+                    del (x1)
+                    del (vec1)
+                    del (vec2)
+                    del (similarity)
+                for j in range(i + 1, len(image_data.objects)):
+                    for sj in image_data.objects[j].superpixels:
+                        x1 = [sj] * len(x2)
+                        x1 = dl.resize_batch_images(x1, IMAGE_SIZE)
+                        vec1 = siamese.network1.eval({siamese.x1: x1})
+                        vec2 = siamese.network2.eval({siamese.x2: x2})
+                        similarity = sess.run(nw.similarity(vec1, vec2))
+                        print('Outer similarity of objects i {:d} j {:d}: '.format(i, j))
+                        print(similarity)
+                        fp += sum(1 for i in similarity if i < 1)
+                        tn += sum(1 for i in similarity if i >= 1)
+                        del (x1)
+                        del (vec1)
+                        del (vec2)
+                        del (similarity)
+                    recall = tp / (tp + fn)
+                    precision = tp / (tp + fp)
+                    accuracy = (tp + tn) / (tp + fp + tn + fn)
+                    f1_score = 2 * (precision * recall) / (precision + recall)
 
-        print('Precision: {:0.6f} Recall: {:0.6f} Accuracy: {:0.6f} F1: {:0.6f}'.format(precision, recall, accuracy, f1_score))
-
+                    print('Precision: {:0.6f} Recall: {:0.6f} Accuracy: {:0.6f} F1: {:0.6f}'.format(precision, recall, accuracy,
+                                                                                            f1_score))
 
 if __name__ == "__main__":
     tf.app.run()
