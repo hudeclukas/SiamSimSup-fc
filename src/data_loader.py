@@ -127,20 +127,20 @@ class SUPSIM:
         batch_s_t_1 = np.concatenate((neg_s_1, pos_s_1))
         batch_s_t_2 = np.concatenate((neg_s_2, pos_s_2))
         batch_l_t = np.concatenate((neg_l, pos_l))
-        if not image_size == None:
-            batch_s_t_1 = resize_batch_images(batch_s_t_1, image_size)
-            batch_s_t_2 = resize_batch_images(batch_s_t_2, image_size)
+        # if not image_size == None:
+        #     batch_s_t_1 = resize_batch_images(batch_s_t_1, image_size)
+        #     batch_s_t_2 = resize_batch_images(batch_s_t_2, image_size)
 
-        if use_grayscale:
-            neg_size_h = int(neg_pairs_count / 2)
-            pos_size_h = int(pos_size / 2)
-            batch_s_t_1[neg_size_h:neg_pairs_count] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_1[neg_size_h:neg_pairs_count]]
-            batch_s_t_2[neg_size_h:neg_pairs_count] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_2[neg_size_h:neg_pairs_count]]
-            batch_s_t_1[neg_pairs_count+pos_size_h:batch_size] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_1[neg_pairs_count+pos_size_h:batch_size]]
-            batch_s_t_2[neg_pairs_count+pos_size_h:batch_size] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_2[neg_pairs_count+pos_size_h:batch_size]]
+        # if use_grayscale:
+        #     neg_size_h = int(neg_pairs_count / 2)
+        #     pos_size_h = int(pos_size / 2)
+        #     batch_s_t_1[neg_size_h:neg_pairs_count] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_1[neg_size_h:neg_pairs_count]]
+        #     batch_s_t_2[neg_size_h:neg_pairs_count] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_2[neg_size_h:neg_pairs_count]]
+        #     batch_s_t_1[neg_pairs_count+pos_size_h:batch_size] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_1[neg_pairs_count+pos_size_h:batch_size]]
+        #     batch_s_t_2[neg_pairs_count+pos_size_h:batch_size] = [color.gray2rgb(color.rgb2gray(i)) for i in batch_s_t_2[neg_pairs_count+pos_size_h:batch_size]]
 
-        if visualize:
-            SUPSIM.vizualize_batch(batch_s_t_1, batch_s_t_2)
+        # if visualize:
+        #     SUPSIM.vizualize_batch(batch_s_t_1, batch_s_t_2)
         return batch_s_t_1, batch_s_t_2, batch_l_t
 
     @staticmethod
