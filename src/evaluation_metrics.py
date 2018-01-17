@@ -2,17 +2,11 @@ import numpy as np
 import math
 
 
-def tpr_fpr(result, threshold, reverse=False):
-    if reverse:
-        tp = sum(1 for i in result if i[0] > threshold and i[1] == 1)
-        fp = sum(1 for i in result if i[0] > threshold and i[1] == 0)
-        tn = sum(1 for i in result if i[0] <= threshold and i[1] == 0)
-        fn = sum(1 for i in result if i[0] <= threshold and i[1] == 1)
-    else:
-        tp = sum(1 for i in result if i[0] < threshold and i[1] == 1)
-        fp = sum(1 for i in result if i[0] < threshold and i[1] == 0)
-        tn = sum(1 for i in result if i[0] >= threshold and i[1] == 0)
-        fn = sum(1 for i in result if i[0] >= threshold and i[1] == 1)
+def tpr_fpr(result, threshold):
+    tp = sum(1 for i in result if i[0] <= threshold and i[1] == 1)
+    fp = sum(1 for i in result if i[0] <= threshold and i[1] == 0)
+    tn = sum(1 for i in result if i[0] > threshold and i[1] == 0)
+    fn = sum(1 for i in result if i[0] > threshold and i[1] == 1)
     tcond = tp + fn
     if tcond > 0:
         tpr = tp / tcond
@@ -20,7 +14,7 @@ def tpr_fpr(result, threshold, reverse=False):
         tpr = 0
     fcond = tn + fp
     if fcond > 0:
-        fpr = tn / fcond
+        fpr = fp / fcond
     else:
         fpr = 0
     return tpr, fpr

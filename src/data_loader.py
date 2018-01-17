@@ -16,18 +16,23 @@ class ImageObjects:
         self.objects = []
         self.name = ''
 
-    def write_similarities_to_file(self, path:str, labels_order:list):
+    def write_similarities_to_file(self, path:str, labels_order:list, ith:int):
         parent_dir = os.path.dirname(path)
         if not os.path.exists(parent_dir):
             os.mkdir(parent_dir)
-        with open(path, mode='wb') as bf:
-            lb = array('i',labels_order)
-            lb.tofile(bf)
-            for i in range(len(self.objects)):
-                for j in range(len(self.objects[i].labels)):
-                    sim = array('d',self.objects[i].similarity[j])
+        with open(path, mode='ab+') as bf:
+            if ith==0:
+                bf.write(len(labels_order).to_bytes(4,'little',signed=False))
+                lb = array('i',labels_order)
+                lb.tofile(bf)
+            if ith >= 0:
+                bf.write(len(self.objects[ith].labels).to_bytes(4,'little',signed=False))
+                for j in range(len(self.objects[ith].labels)):
+                    sim = array('d', self.objects[ith].similarity[j])
                     sim.tofile(bf)
+
             bf.close()
+        print('File saved {:s}'.format(path))
 
 
 class ObjectSuperpixels:
@@ -65,6 +70,7 @@ class SUPSIM:
             img_objs.name = file
             try:
                 with open(os.path.join(abspath, file), "rb") as bf:
+                    channels = int.from_bytes(bf.read(4), byteorder="little", signed=False)
                     objs = int.from_bytes(bf.read(4), byteorder="little", signed=False)
                     for o in range(objs):
                         obj_sups = ObjectSuperpixels()
@@ -75,7 +81,7 @@ class SUPSIM:
                                 obj_sups.labels.append(label)
                             rows = int.from_bytes(bf.read(4), byteorder="little", signed=False)
                             cols = int.from_bytes(bf.read(4), byteorder="little", signed=False)
-                            data = np.empty(shape=[rows, cols, 3], dtype=np.ubyte)
+                            data = np.empty(shape=[rows, cols, channels], dtype=np.ubyte)
                             bf.readinto(data.data)
                             data = (data / 255).astype(np.float32)
                             # plt.imshow(data)
