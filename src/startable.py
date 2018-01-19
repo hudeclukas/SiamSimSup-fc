@@ -11,7 +11,7 @@ import data_loader as dl
 import evaluation_metrics as em
 
 # PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_c3+labels"
-PATH_2_SEG_BIN = "D:/Vision_Images/Pexels_textures/Textures/TexDat"
+PATH_2_SEG_BIN = "D:/Vision_Images/Pexels_textures/TexDat"
 PATH_2_SIMILARITIES = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_c3+labels/similarities"
 SIMILARITIES_EXTENSION = ".sim"
 MODEL_NAME = "texdat_first"
@@ -21,9 +21,9 @@ MAX_ITERS = 20001
 
 def main(_arg_):
     tf.logging.set_verbosity(tf.logging.INFO)
-    siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=3)
+    siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=4)
 
-    supsim = dl.SUPSIM(PATH_2_SEG_BIN, 16, MAX_ITERS, IMAGE_SIZE, True)
+    supsim = dl.SUPSIM(PATH_2_SEG_BIN, 2, MAX_ITERS, IMAGE_SIZE, True)
     print("Starting loading data")
     start = time.time() * 1000
     supsim.load_data()
@@ -71,8 +71,30 @@ def main(_arg_):
                 if step % 10 == 0:
                     print("Step: {:04d} loss: {:3.8f}".format(step, loss_v))
 
-                if step % 200 == 0:
+                if step % 150 == 0:
                     file_writer.add_summary(summary, step)
+                    x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=30, image_size=IMAGE_SIZE)
+                    siamese.training = False
+                    vec1 = siamese.network1.eval({siamese.x1: x_s_1})
+                    vec2 = siamese.network2.eval({siamese.x2: x_s_2})
+                    similarity = sess.run(nw.similarity(vec1, vec2))
+                    error_idx = [i for i in range(len(similarity)) if
+                                 (x_l[i] == 1 and similarity[i] >= 1) or (
+                                 x_l[i] == 0 and similarity[i] < 1)]
+                    error_patch = np.array([[x_s_1[i]*255,x_s_2[i]*255,x_l[i]] for i in error_idx])
+                    with tf.variable_scope('test', 'err_patch'):
+                        ix = IMAGE_SIZE[0]
+                        iy = IMAGE_SIZE[1]
+                        for i in range(len(error_patch)):
+                            img1 = tf.reshape(error_patch[i][0].astype(np.uint8),[1,ix,iy,1])
+                            img2 = tf.reshape(error_patch[i][1].astype(np.uint8),[1,ix,iy,1])
+                            tfim1 = tf.summary.image('err_patch-'+str(i)+'-s1-'+str(error_patch[i][2]), img1, max_outputs=1)
+                            tfim2 = tf.summary.image('err_patch-'+str(i)+'-s2-'+str(error_patch[i][2]), img2, max_outputs=1)
+                            file_writer.add_summary(tfim1.eval(),step)
+                            file_writer.add_summary(tfim2.eval(),step)
+                    result = list(zip(similarity, x_l))
+                    print(result)
+                    siamese.training = True
 
                 if step % 5000 == 0 and step > 0:
                     model_name_path = 'model/' + MODEL_NAME

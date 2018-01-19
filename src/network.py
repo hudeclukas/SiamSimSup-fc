@@ -21,26 +21,26 @@ class siamese_fc:
         self.loss = self.loss_contrastive()
 
     def _network_slim(self, x):
-        # with tf.variable_scope('input_images','slim_net',reuse=True):
-        #     batch_shape = x.shape
-        #     iyr = int(300 / batch_shape[1].value)
-        #     ixr = int(300 / batch_shape[2].value)
-        #     ix = batch_shape[1].value
-        #     iy = batch_shape[2].value
-        #     batch_d = tf.slice(x, (0, 0, 0, 0), (1, -1, -1, -1))
-        #     batch_s = tf.slice(x, (64, 0, 0, 0), (1, -1, -1, -1))
-        #     batch_d = tf.image.resize_images(
-        #         images=batch_d,
-        #         size=(iyr * iy, ixr * ix),
-        #         method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
-        #     )
-        #     batch_s = tf.image.resize_images(
-        #         images=batch_s,
-        #         size=(iyr * iy, ixr * ix),
-        #         method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
-        #     )
-        #     slim.summary.image("batch_d_input", batch_d)
-        #     slim.summary.image("batch_s_input", batch_s)
+        with tf.variable_scope('input_images','slim_net',reuse=True):
+            batch_shape = x.shape
+            iyr = int(450 / batch_shape[1].value)
+            ixr = int(450 / batch_shape[2].value)
+            ix = batch_shape[1].value
+            iy = batch_shape[2].value
+            batch_d = tf.slice(x, (0, 0, 0, 0), (1, -1, -1, -1))
+            batch_s = tf.slice(x, (1, 0, 0, 0), (1, -1, -1, -1))
+            batch_d = tf.image.resize_images(
+                images=batch_d,
+                size=(iyr * iy, ixr * ix),
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            batch_s = tf.image.resize_images(
+                images=batch_s,
+                size=(iyr * iy, ixr * ix),
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            slim.summary.image("batch_d_input", batch_d)
+            slim.summary.image("batch_s_input", batch_s)
         conv1 = slim.conv2d(
             inputs=x,
             num_outputs=96,
@@ -72,7 +72,7 @@ class siamese_fc:
             inputs=pool2,
             num_outputs=384,
             kernel_size=[3, 3],
-            stride=2,
+            stride=1,
             scope='conv3',
             reuse=tf.AUTO_REUSE
         )
@@ -91,38 +91,38 @@ class siamese_fc:
                 b2 = slim.conv2d(b2, 128, [3, 3], 1, scope='b2')
             conv5 = tf.concat([b1, b2], 3)
 
-        # with tf.variable_scope('out_image','slim_net',reuse=tf.AUTO_REUSE):
-        #     batch_shape = conv5.shape
-        #     iyr = int(450 / batch_shape[1].value)
-        #     ixr = int(450 / batch_shape[2].value)
-        #     ix = batch_shape[1].value
-        #     iy = batch_shape[2].value
-        #     image_d = tf.slice(conv5,(0,0,0,0),(1,-1,-1,-1))
-        #     image_s = tf.slice(conv5,(64,0,0,0),(1,-1,-1,-1))
-        #     image_d = tf.reshape(image_d, (iy, ix, batch_shape[3].value))
-        #     image_s = tf.reshape(image_s, (iy, ix, batch_shape[3].value))
-        #     ix+=2
-        #     iy+=2
-        #     image_d = tf.image.resize_image_with_crop_or_pad(image_d, iy, ix)
-        #     image_s = tf.image.resize_image_with_crop_or_pad(image_s, iy, ix)
-        #     image_d = tf.reshape(image_d, (iy, ix, 16, 16))
-        #     image_s = tf.reshape(image_s, (iy, ix, 16, 16))
-        #     image_d = tf.transpose(image_d,(2,0,3,1))
-        #     image_s = tf.transpose(image_s,(2,0,3,1))
-        #     image_d = tf.reshape(image_d, (1, 16 * iy, 16 * ix, 1))
-        #     image_s = tf.reshape(image_s, (1, 16 * iy, 16 * ix, 1))
-        #     image_d = tf.image.resize_images(
-        #         images=image_d,
-        #         size=(iyr * iy, ixr * ix),
-        #         method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
-        #     )
-        #     image_s = tf.image.resize_images(
-        #         images=image_s,
-        #         size=(iyr * iy, ixr * ix),
-        #         method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
-        #     )
-        #     tf.summary.image("out_d",image_d)
-        #     tf.summary.image("out_s",image_s)
+        with tf.variable_scope('out_image','slim_net',reuse=tf.AUTO_REUSE):
+            batch_shape = conv5.shape
+            iyr = int(700 / batch_shape[1].value)
+            ixr = int(700 / batch_shape[2].value)
+            ix = batch_shape[1].value
+            iy = batch_shape[2].value
+            image_d = tf.slice(conv5,(0,0,0,0),(1,-1,-1,-1))
+            image_s = tf.slice(conv5,(1,0,0,0),(1,-1,-1,-1))
+            image_d = tf.reshape(image_d, (iy, ix, batch_shape[3].value))
+            image_s = tf.reshape(image_s, (iy, ix, batch_shape[3].value))
+            ix+=2
+            iy+=2
+            image_d = tf.image.resize_image_with_crop_or_pad(image_d, iy, ix)
+            image_s = tf.image.resize_image_with_crop_or_pad(image_s, iy, ix)
+            image_d = tf.reshape(image_d, (iy, ix, 16, 16))
+            image_s = tf.reshape(image_s, (iy, ix, 16, 16))
+            image_d = tf.transpose(image_d,(2,0,3,1))
+            image_s = tf.transpose(image_s,(2,0,3,1))
+            image_d = tf.reshape(image_d, (1, 16 * iy, 16 * ix, 1))
+            image_s = tf.reshape(image_s, (1, 16 * iy, 16 * ix, 1))
+            image_d = tf.image.resize_images(
+                images=image_d,
+                size=(iyr * iy, ixr * ix),
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            image_s = tf.image.resize_images(
+                images=image_s,
+                size=(iyr * iy, ixr * ix),
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            tf.summary.image("out_d",image_d)
+            tf.summary.image("out_s",image_s)
 
         fc1 = slim.conv2d(
             inputs=conv5,
@@ -150,7 +150,7 @@ class siamese_fc:
         return flatten
 
     def loss_contrastive(self):
-        # zero label means similar, one is value of dissimilarity
+        # one label means similar, zero is value of dissimilarity
         y_t = tf.subtract(1.0, tf.convert_to_tensor(self.y, dtype=tf.float32, name="labels"), name="dissimilarity")
         margin = tf.constant(self._margin, name="margin", dtype=tf.float32)
 
