@@ -4,7 +4,6 @@ import numpy as np
 import os
 import random
 import matplotlib.pyplot as plt
-import cv2
 
 from array import array
 
@@ -50,12 +49,10 @@ class ObjectSuperpixels:
 class SUPSIM:
     visualize = False
 
-    def __init__(self, path, batch_size=128, start_step=0, max_steps=5000, image_size=None, use_grayscale=False):
+    def __init__(self, path, batch_size=128, image_size=None, use_grayscale=False):
         self.batch_size = batch_size
-        self.train = SUPSIM.train(path, batch_size, start_step, max_steps, image_size, use_grayscale)
-        self.test = SUPSIM.test(path, batch_size, start_step, max_steps, image_size, use_grayscale)
-        self.start_step = start_step
-        self.max_steps = max_steps
+        self.train = SUPSIM.train(path, batch_size, image_size, use_grayscale)
+        self.test = SUPSIM.test(path, batch_size, image_size, use_grayscale)
 
     def set_path(self, path):
         if os.path.exists(os.path.abspath(path)):
@@ -72,6 +69,7 @@ class SUPSIM:
             return
         if not (train or test):
             return
+        print("Loading from \""+abspath +"\"")
         files = os.listdir(abspath)
         for file in files:
             img_objs = ImageObjects()
@@ -144,9 +142,9 @@ class SUPSIM:
         # batch_s_t_1 = np.array([cv2.normalize(i, np.array([]), alpha=1, norm_type=cv2.NORM_L2) for i in batch_s_t_1])
         # batch_s_t_2 = np.array([cv2.normalize(i, np.array([]), alpha=1, norm_type=cv2.NORM_L2) for i in batch_s_t_2])
 
-        # if not image_size == None:
-        #     batch_s_t_1 = resize_batch_images(batch_s_t_1, image_size)
-        #     batch_s_t_2 = resize_batch_images(batch_s_t_2, image_size)
+        if not image_size == None and not batch_s_t_1[0].shape == image_size:
+            batch_s_t_1 = resize_batch_images(batch_s_t_1, image_size)
+            batch_s_t_2 = resize_batch_images(batch_s_t_2, image_size)
 
         # if use_grayscale:
         #     neg_size_h = int(neg_pairs_count / 2)
@@ -158,7 +156,7 @@ class SUPSIM:
 
         # if visualize:
         #     SUPSIM.vizualize_batch(batch_s_t_1, batch_s_t_2)
-        shape = batch_s_t_1.shape
+        # shape = batch_s_t_1.shape
         # return batch_s_t_1.reshape((shape[0],shape[1],shape[2],1)), batch_s_t_2.reshape((shape[0],shape[1],shape[2],1)), batch_l_t
         return batch_s_t_1, batch_s_t_2, batch_l_t
 
@@ -186,15 +184,17 @@ class SUPSIM:
         def add_object(self, o):
             self.images.append(o)
 
-        def __iter__(self):
-            self.current_step = self.start_step
+        def __iter__(self,min, max):
+            self.current_step = min
+            self.min = min
+            self.max = max
             return self
 
         def __next__(self):
             return self.next()
 
         def next(self):
-            if self.current_step < self.max_steps:
+            if self.current_step < self.max:
                 self.current_step += 1
                 # print("another iteration")
                 return SUPSIM.next_batch(
@@ -208,11 +208,9 @@ class SUPSIM:
                 raise StopIteration
 
     class test:
-        def __init__(self, path, batch_size=128, start_step=0, max_steps=5000, size=None, grayscale=False):
+        def __init__(self, path, batch_size=128, size=None, grayscale=False):
             self.abs_path = os.path.abspath(path) + "\\test"
             self.batch_size = batch_size
-            self.start_step = start_step
-            self.max_steps = max_steps
             self.data = []
             self.images = []
             self.image_size = size
@@ -224,15 +222,17 @@ class SUPSIM:
         def add_object(self, o):
             self.images.append(o)
 
-        def __iter__(self):
-            self.current_step = self.start_step
+        def __iter__(self, min, max):
+            self.current_step = self.min
+            self.min = min
+            self.max = max
             return self
 
         def __next__(self):
             return self.next()
 
         def next(self):
-            if self.current_step < self.max_steps:
+            if self.current_step < self.max:
                 self.current_step += 1
                 return SUPSIM.next_batch(
                     data=self.data,

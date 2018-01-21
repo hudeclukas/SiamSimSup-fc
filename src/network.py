@@ -93,8 +93,8 @@ class siamese_fc:
 
         with tf.variable_scope('out_image','slim_net',reuse=tf.AUTO_REUSE):
             batch_shape = conv5.shape
-            iyr = int(700 / batch_shape[1].value)
-            ixr = int(700 / batch_shape[2].value)
+            iyr = int(650 / batch_shape[1].value)
+            ixr = int(650 / batch_shape[2].value)
             ix = batch_shape[1].value
             iy = batch_shape[2].value
             image_d = tf.slice(conv5,(0,0,0,0),(1,-1,-1,-1))
