@@ -14,7 +14,7 @@ import evaluation_metrics as em
 PATH_2_SEG_BIN = "D:/HudecL/Pexels/TexDat"
 PATH_2_SIMILARITIES = "D:/HudecL/Pexels/TexDat/similarities"
 SIMILARITIES_EXTENSION = ".sim"
-MODEL_NAME = "texdat_filtered_new_try2"
+MODEL_NAME = "texdat_filtered"
 IMAGE_SIZE = (150, 150, 1)
 MAX_ITERS = 20001
 
@@ -51,14 +51,14 @@ def main(_arg_):
     if os.path.exists("model/" + MODEL_NAME + "/checkpoint"):
         saver.restore(sess, model_ckpt)
 
-    if False:
+    if True:
         model_name_path = 'model/' + MODEL_NAME
         if not os.path.exists(model_name_path):
             os.mkdir(model_name_path)
         saver.save(sess, model_name_path + '/model')
         file_writer = tf.summary.FileWriter('board/logs/' + MODEL_NAME, sess.graph)
         # dl.SUPSIM.visualize=True
-        for epoch in range(5):
+        for epoch in range(4):
             print("Epoch {:01d}".format(epoch))
             dropout_prob = 0.5 - epoch / 50
             siamese.dropout_prob = dropout_prob
@@ -78,36 +78,36 @@ def main(_arg_):
                 if step % 100 == 0:
                     file_writer.add_summary(summary, step)
 
-                if step % 2500 == 0:
-                    x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=30, image_size=IMAGE_SIZE)
-                    siamese.training = False
-                    vec1 = siamese.network1.eval({siamese.x1: x_s_1})
-                    vec2 = siamese.network2.eval({siamese.x2: x_s_2})
-                    tf_sim = nw.similarity(vec1, vec2)
-                    similarity = sess.run(tf_sim)
-                    error_idx = [i for i in range(len(similarity)) if
-                                 (x_l[i] == 1 and similarity[i] >= 1) or (
-                                 x_l[i] == 0 and similarity[i] < 1)]
-                    error_patch = np.array([[x_s_1[i] * 255, x_s_2[i] * 255, x_l[i], similarity[i]] for i in error_idx])
-                    if step > 5000 and step % 5000 == 0:
-                        with tf.variable_scope('test', 'err_patch'):
-                            ix = IMAGE_SIZE[0]
-                            iy = IMAGE_SIZE[1]
-                            for i in range(len(error_patch)):
-                                img1 = tf.reshape(error_patch[i][0].astype(np.uint8), [1, ix, iy, 1])
-                                img2 = tf.reshape(error_patch[i][1].astype(np.uint8), [1, ix, iy, 1])
-                                tfim1 = tf.summary.image('e_p-'+str(i)+'-s1-'+str(int(error_patch[i][2]))+'sim-'+str(error_patch[i][3]), img1, max_outputs=1)
-                                tfim2 = tf.summary.image('e_p-'+str(i)+'-s2-'+str(int(error_patch[i][2]))+'sim-'+str(error_patch[i][3]), img2, max_outputs=1)
-                                file_writer.add_summary(tfim1.eval(), step)
-                                file_writer.add_summary(tfim2.eval(), step)
-                                tf.delete_session_tensor(img1)
-                                tf.delete_session_tensor(img2)
-                                tf.delete_session_tensor(tfim1)
-                                tf.delete_session_tensor(tfim2)
-                                result = list(zip(similarity, x_l))
-                    print(result)
-                    del similarity
-                    siamese.training = True
+                # if step % 2500 == 0:
+                #     x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=30, image_size=IMAGE_SIZE)
+                #     siamese.training = False
+                #     vec1 = siamese.network1.eval({siamese.x1: x_s_1})
+                #     vec2 = siamese.network2.eval({siamese.x2: x_s_2})
+                #     tf_sim = nw.similarity(vec1, vec2)
+                #     similarity = sess.run(tf_sim)
+                    # error_idx = [i for i in range(len(similarity)) if
+                    #              (x_l[i] == 1 and similarity[i] >= 1) or (
+                    #              x_l[i] == 0 and similarity[i] < 1)]
+                    # error_patch = np.array([[x_s_1[i] * 255, x_s_2[i] * 255, x_l[i], similarity[i]] for i in error_idx])
+                    # if step > 5000 and step % 5000 == 0:
+                    #     with tf.variable_scope('test', 'err_patch'):
+                    #         ix = IMAGE_SIZE[0]
+                    #         iy = IMAGE_SIZE[1]
+                    #         for i in range(len(error_patch)):
+                    #             img1 = tf.reshape(error_patch[i][0].astype(np.uint8), [1, ix, iy, 1])
+                    #             img2 = tf.reshape(error_patch[i][1].astype(np.uint8), [1, ix, iy, 1])
+                    #             tfim1 = tf.summary.image('e_p-'+str(i)+'-s1-'+str(int(error_patch[i][2]))+'sim-'+str(error_patch[i][3]), img1, max_outputs=1)
+                    #             tfim2 = tf.summary.image('e_p-'+str(i)+'-s2-'+str(int(error_patch[i][2]))+'sim-'+str(error_patch[i][3]), img2, max_outputs=1)
+                    #             file_writer.add_summary(tfim1.eval(), step)
+                    #             file_writer.add_summary(tfim2.eval(), step)
+                    #             tf.delete_session_tensor(img1)
+                    #             tf.delete_session_tensor(img2)
+                    #             tf.delete_session_tensor(tfim1)
+                    #             tf.delete_session_tensor(tfim2)
+                    # result = list(zip(similarity, x_l))
+                    # print(result)
+                    # del similarity
+                    # siamese.training = True
 
                 if step % 5000 == 0 and step > 0:
                     save_path = saver.save(sess, model_name_path + '/model', step, write_meta_graph=False)
@@ -127,12 +127,19 @@ def main(_arg_):
             siamese.training = False
             all_results_siam = None
             siamese.training = False
-            for i in range(200):
+            path = "D:/HudecL/test_batches/"
+            for i in range(70):
                 x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=100, image_size=IMAGE_SIZE)
+                os.mkdir(path+"batch-"+str(i))
                 vec1 = siamese.network1.eval({siamese.x1: x_s_1})
                 vec2 = siamese.network2.eval({siamese.x2: x_s_2})
                 tf_sim = nw.similarity(vec1, vec2)
                 similarity = sess.run(tf_sim)
+                for j in range(len(x_l)):
+                    name1 = path+"batch-"+str(i)+"/b"+str(i)+"-pair"+str(j)+"-s1-"+str(x_l[j])+"-"+str(similarity[j])+".png"
+                    name2 = path+"batch-"+str(i)+"/b"+str(i)+"-pair"+str(j)+"-s2-"+str(x_l[j])+"-"+str(similarity[j])+".png"
+                    plt.imsave(name1, x_s_1[j].reshape((150,150)), cmap="gray")
+                    plt.imsave(name2, x_s_2[j].reshape((150,150)), cmap="gray")
                 result = list(zip(similarity, x_l))
                 del tf_sim
                 del similarity

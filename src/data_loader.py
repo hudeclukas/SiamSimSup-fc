@@ -94,10 +94,10 @@ class SUPSIM:
                             data = (data / 255).astype(np.float32)
                             # plt.imshow(data)
                             obj_sups.superpixels.append(data)
-                            if train:
-                                self.train.append(obj_sups)
-                            elif test:
-                                self.test.append(obj_sups)
+                        if train:
+                            self.train.append(obj_sups)
+                        elif test:
+                            self.test.append(obj_sups)
                         img_objs.objects.append(obj_sups)
                     bf.close()
                 if train:
@@ -106,14 +106,19 @@ class SUPSIM:
                     self.test.add_object(img_objs)
             except IOError:
                 print("File {:s} does not exist".format(os.path.join(abspath, file)))
+        print(str(len(self.train.data)) + " train objects loaded")
+        print(str(len(self.test.data)) + " test objects loaded")
 
     @staticmethod
     def next_batch(data, batch_size=None, image_size=None, visualize=False, use_grayscale=False):
         if batch_size == None:
             return []
+        if batch_size > len(data):
+            batch_size = (len(data) >> 1) << 1
         neg_size = batch_size
         pos_size = int(batch_size) >> 1
         neg_classes = random.sample(data, neg_size)
+        random.shuffle(neg_classes)
         pos_classes = random.sample(data, pos_size)
         neg_pairs_count = int(neg_size) >> 1
         neg_s = [random.choice(c.superpixels) for c in neg_classes]
