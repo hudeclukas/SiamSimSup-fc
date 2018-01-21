@@ -28,7 +28,7 @@ class siamese_fc:
             ix = batch_shape[1].value
             iy = batch_shape[2].value
             batch_d = tf.slice(x, (0, 0, 0, 0), (1, -1, -1, -1))
-            batch_s = tf.slice(x, (1, 0, 0, 0), (1, -1, -1, -1))
+            batch_s = tf.slice(x, (50, 0, 0, 0), (1, -1, -1, -1))
             batch_d = tf.image.resize_images(
                 images=batch_d,
                 size=(iyr * iy, ixr * ix),
@@ -98,7 +98,7 @@ class siamese_fc:
             ix = batch_shape[1].value
             iy = batch_shape[2].value
             image_d = tf.slice(conv5,(0,0,0,0),(1,-1,-1,-1))
-            image_s = tf.slice(conv5,(1,0,0,0),(1,-1,-1,-1))
+            image_s = tf.slice(conv5,(50,0,0,0),(1,-1,-1,-1))
             image_d = tf.reshape(image_d, (iy, ix, batch_shape[3].value))
             image_s = tf.reshape(image_s, (iy, ix, batch_shape[3].value))
             ix+=2
