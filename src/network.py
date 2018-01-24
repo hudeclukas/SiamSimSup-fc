@@ -149,26 +149,42 @@ class siamese_fc:
         flatten = slim.flatten(fc2, scope='flatten')
         return flatten
 
+    def distanceEuclid(self, in1:tf.Tensor, in2:tf.Tensor, name:str):
+        with tf.variable_scope('Euclid_dw_'+name, reuse=tf.AUTO_REUSE):
+            eucd2 = tf.reduce_sum(tf.pow(tf.subtract(in1, in2), 2), 1, name="e^2 " + name)
+            eucd = tf.sqrt(eucd2, name="e " + name)
+            return eucd
+
+    def distanceCanberra(self, in1:tf.Tensor, in2:tf.Tensor, name:str, s=""):
+        with tf.variable_scope('Canberra_dw_'+name, reuse=tf.AUTO_REUSE):
+            in1_abs = tf.abs(in1,name+'_a-in1')
+            in2_abs = tf.abs(in2,name+'_a-in2')
+            in1_in2_abs = tf.abs(tf.subtract(in1, in2, name + '_a-in1_in2'))
+            canbd = tf.reduce_sum(tf.divide(in1_in2_abs,tf.add(in1_abs,in2_abs),name='canberra_'+name))
+            return canbd
+
     def loss_contrastive(self):
         # one label means similar, zero is value of dissimilarity
         y_t = tf.subtract(1.0, tf.convert_to_tensor(self.y, dtype=tf.float32, name="labels"), name="dissimilarity")
         margin = tf.constant(self._margin, name="margin", dtype=tf.float32)
 
-        eucd2 = tf.reduce_sum(tf.pow(tf.subtract(self.network1, self.network2), 2), 1, name="euclid2")
-        eucd = tf.sqrt(eucd2, name="euclid")
+        # eucd = self.distanceEuclid(self.network1, self.network2, 'eucd-loss')
+        # eucd2 = tf.pow(eucd, 2, 'eucd-loss-pow')
 
+        canbd = self.distanceCanberra(self.network1,self.network2,'loss_fn')
+        canbd2 = tf.pow(canbd, 2 , 'canb_2')
         try:
-            tf.check_numerics(eucd, 'Check of the euclid distance (eucd): ')
+            tf.check_numerics(canbd, 'Check of the euclid distance (eucd): ')
         except tf.errors.InvalidArgumentError:
             print('InvalidArgumentError in euclid distance "eucd"')
         else:
-            tf.summary.histogram('euclidean_distance', eucd)
+            tf.summary.histogram('euclidean_distance', canbd)
 
         y_f = tf.subtract(1.0, y_t, name="1-y")
         half_f = tf.multiply(y_f, 0.5, name="y_f/2")
-        similar = tf.multiply(half_f, eucd2, name="con_l")
+        similar = tf.multiply(half_f, canbd2, name="con_l")
         half_t = tf.multiply(y_t, 0.5, name="y_t/2")
-        dissimilar = tf.multiply(half_t, tf.maximum(0.0, tf.subtract(margin, eucd)))
+        dissimilar = tf.multiply(half_t, tf.maximum(0.0, tf.subtract(margin, canbd)))
 
         losses = tf.add(similar, dissimilar, name="losses")
         loss = tf.reduce_mean(losses, name="loss")
