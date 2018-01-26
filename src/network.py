@@ -151,8 +151,8 @@ class siamese_fc:
 
     def distanceEuclid(self, in1:tf.Tensor, in2:tf.Tensor, name:str):
         with tf.variable_scope('Euclid_dw_'+name, reuse=tf.AUTO_REUSE):
-            eucd2 = tf.reduce_sum(tf.pow(tf.subtract(in1, in2), 2), 1, name="e^2 " + name)
-            eucd = tf.sqrt(eucd2, name="e " + name)
+            eucd2 = tf.reduce_sum(tf.pow(tf.subtract(in1, in2), 2), 1, name="e2_" + name)
+            eucd = tf.sqrt(eucd2, name="e_" + name)
             return eucd
 
     def distanceCanberra(self, in1:tf.Tensor, in2:tf.Tensor, name:str, s=""):
@@ -160,7 +160,7 @@ class siamese_fc:
             in1_abs = tf.abs(in1,name+'_a-in1')
             in2_abs = tf.abs(in2,name+'_a-in2')
             in1_in2_abs = tf.abs(tf.subtract(in1, in2, name + '_a-in1_in2'))
-            canbd = tf.reduce_sum(tf.divide(in1_in2_abs,tf.add(in1_abs,in2_abs),name='canberra_'+name))
+            canbd = tf.reduce_sum(tf.divide(in1_in2_abs,tf.add(tf.add(in1_abs,in2_abs),tf.constant(0.0001,dtype=tf.float32))),name='canberra_'+name)
             return canbd
 
     def loss_contrastive(self):
@@ -174,11 +174,11 @@ class siamese_fc:
         canbd = self.distanceCanberra(self.network1,self.network2,'loss_fn')
         canbd2 = tf.pow(canbd, 2 , 'canb_2')
         try:
-            tf.check_numerics(canbd, 'Check of the euclid distance (eucd): ')
+            tf.check_numerics(canbd, 'Check of the Canberra distance (canbd): ')
         except tf.errors.InvalidArgumentError:
-            print('InvalidArgumentError in euclid distance "eucd"')
+            print('InvalidArgumentError in Canberra distance "canbd"')
         else:
-            tf.summary.histogram('euclidean_distance', canbd)
+            tf.summary.histogram('canberra_distance', canbd)
 
         y_f = tf.subtract(1.0, y_t, name="1-y")
         half_f = tf.multiply(y_f, 0.5, name="y_f/2")

@@ -12,18 +12,18 @@ import evaluation_metrics as em
 
 # PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_c3+labels"
 PATH_2_SEG_BIN_Berk = "D:/HudecL/Pexels/TexDat/berk+texd/TexDat/berkeley"
-PATH_2_SEG_BIN_TexD = "D:/HudecL/Pexels/TexDat/berk+texd/TexDat/pexels"
+PATH_2_SEG_BIN_TexD = "D:/HudecL/Pexels/TexDat/official_textures"
 PATH_2_SIMILARITIES = "D:/HudecL/Pexels/TexDat/similarities"
 SIMILARITIES_EXTENSION = ".sim"
 MODEL_NAME = "texdat_norm-canberra"
 # MODEL_NAME = "texdat_filtered_new_try"
 IMAGE_SIZE = (150, 150, 1)
-MAX_ITERS = 35001
+MAX_ITERS = 15001
 
 
 def main(_arg_):
     tf.logging.set_verbosity(tf.logging.INFO)
-    siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=2.5)
+    siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=3.5)
 
     # supsim_berk = dl.SUPSIM(PATH_2_SEG_BIN_Berk, 100, IMAGE_SIZE, True)
     supsim_texd = dl.SUPSIM(PATH_2_SEG_BIN_TexD, 100, IMAGE_SIZE, True)
@@ -63,7 +63,7 @@ def main(_arg_):
         saver.save(sess, model_name_path + '/model')
         file_writer = tf.summary.FileWriter('board/logs/' + MODEL_NAME, sess.graph)
         # dl.SUPSIM.visualize=True
-        for epoch in range(0, 1):
+        for epoch in range(0, 4):
             print("Epoch {:01d}".format(epoch))
             # if epoch == 3:
             #     supsim = supsim_texd
