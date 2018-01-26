@@ -157,10 +157,10 @@ class siamese_fc:
 
     def distanceCanberra(self, in1:tf.Tensor, in2:tf.Tensor, name:str, s=""):
         with tf.variable_scope('Canberra_dw_'+name, reuse=tf.AUTO_REUSE):
-            in1_abs = tf.abs(in1,name+'_a-in1')
-            in2_abs = tf.abs(in2,name+'_a-in2')
-            in1_in2_abs = tf.abs(tf.subtract(in1, in2, name + '_a-in1_in2'))
-            canbd = tf.reduce_sum(tf.divide(in1_in2_abs,tf.add(tf.add(in1_abs,in2_abs),tf.constant(0.0001,dtype=tf.float32))),name='canberra_'+name)
+            in1_abs = tf.abs(in1,name+'_a_in1')
+            in2_abs = tf.abs(in2,name+'_a_in2')
+            in1_in2_abs = tf.abs(tf.subtract(in1, in2, name + '_a_in1_in2'))
+            canbd = tf.reduce_sum(tf.divide(in1_in2_abs,tf.add(tf.add(in1_abs,in2_abs),tf.constant(0.00001,dtype=tf.float32))),axis=1,name='canberra_'+name)
             return canbd
 
     def loss_contrastive(self):
@@ -172,7 +172,8 @@ class siamese_fc:
         # eucd2 = tf.pow(eucd, 2, 'eucd-loss-pow')
 
         canbd = self.distanceCanberra(self.network1,self.network2,'loss_fn')
-        canbd2 = tf.pow(canbd, 2 , 'canb_2')
+        canbd2 = tf.pow(canbd, 2, 'canb_2')
+
         try:
             tf.check_numerics(canbd, 'Check of the Canberra distance (canbd): ')
         except tf.errors.InvalidArgumentError:
