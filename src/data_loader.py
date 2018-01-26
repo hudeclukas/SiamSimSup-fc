@@ -1,5 +1,3 @@
-from _tracemalloc import start
-
 import numpy as np
 import os
 import random
@@ -9,7 +7,7 @@ from array import array
 
 from skimage import transform
 from skimage import color
-
+import sklearn.preprocessing as prep
 
 def resize_batch_images(batch: list, image_size: tuple) -> np.ndarray:
     return np.asarray([transform.resize(image, image_size, mode="reflect") for image in batch])
@@ -89,7 +87,8 @@ class SUPSIM:
                             cols = int.from_bytes(bf.read(4), byteorder="little", signed=False)
                             data = np.empty(shape=[rows, cols, channels], dtype=np.ubyte)
                             bf.readinto(data.data)
-                            data = (data / 255).astype(np.float32)
+                            # data = (data / 255).astype(np.float32)
+                            data = prep.scale(data.reshape((rows * cols * channels))).reshape((rows, cols, channels))
                             # plt.imshow(data)
                             obj_sups.superpixels.append(data)
                         if train:
@@ -142,9 +141,9 @@ class SUPSIM:
         # batch_s_t_1 = np.array([cv2.normalize(i, np.array([]), alpha=1, norm_type=cv2.NORM_L2) for i in batch_s_t_1])
         # batch_s_t_2 = np.array([cv2.normalize(i, np.array([]), alpha=1, norm_type=cv2.NORM_L2) for i in batch_s_t_2])
 
-        if not image_size == None and not batch_s_t_1[0].shape == image_size:
-            batch_s_t_1 = resize_batch_images(batch_s_t_1, image_size)
-            batch_s_t_2 = resize_batch_images(batch_s_t_2, image_size)
+        # if not image_size == None and not batch_s_t_1[0].shape == image_size:
+        #     batch_s_t_1 = resize_batch_images(batch_s_t_1, image_size)
+        #     batch_s_t_2 = resize_batch_images(batch_s_t_2, image_size)
 
         # if use_grayscale:
         #     neg_size_h = int(neg_pairs_count / 2)
