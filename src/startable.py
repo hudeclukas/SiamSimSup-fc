@@ -18,14 +18,14 @@ PATH_2_SEG_BIN_TexD = "D:/HudecL/Pexels/TexDat/official_textures"
 PATH_2_SEG_Test = "D:/HudecL/test-textures"
 PATH_2_SIMILARITIES = "D:/HudecL/Pexels/TexDat/similarities"
 SIMILARITIES_EXTENSION = ".sim"
-MODEL_NAME = "texdat_official_model"
+MODEL_NAME = "texdat_official_margin35"
 IMAGE_SIZE = (150, 150, 1)
 MAX_ITERS = 15001
 
 
 def main(_arg_):
     tf.logging.set_verbosity(tf.logging.INFO)
-    siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=2.5)
+    siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=3.5)
 
     # supsim_berk = dl.SUPSIM(PATH_2_SEG_BIN_Berk, 100, IMAGE_SIZE, True)
     supsim_texd = dl.SUPSIM(PATH_2_SEG_BIN_TexD, 2, IMAGE_SIZE, True)
@@ -53,11 +53,11 @@ def main(_arg_):
 
     merged_summary = tf.summary.merge_all()
     model_ckpt = 'model/' + MODEL_NAME + '/model'
-    saver = tf.train.Saver(var_list=tf.global_variables('siamese-fc'),max_to_keep=10)
+    saver = tf.train.Saver(var_list=tf.global_variables('siamese-fc'), max_to_keep=10)
     if os.path.exists("model/" + MODEL_NAME + "/checkpoint"):
         saver.restore(sess, model_ckpt)
 
-    if False:
+    if True:
         supsim = supsim_texd
         model_name_path = 'model/' + MODEL_NAME
         if not os.path.exists(model_name_path):
@@ -65,7 +65,7 @@ def main(_arg_):
         saver.save(sess, model_name_path + '/model')
         file_writer = tf.summary.FileWriter('board/logs/' + MODEL_NAME, sess.graph)
         # dl.SUPSIM.visualize=True
-        for epoch in range(4, 7):
+        for epoch in range(0, 3):
             print("Epoch {:01d}".format(epoch))
             # if epoch == 3:
             #     supsim = supsim_texd

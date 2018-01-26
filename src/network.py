@@ -21,26 +21,6 @@ class siamese_fc:
         self.loss = self.loss_contrastive()
 
     def _network_slim(self, x):
-        with tf.variable_scope('input_images','slim_net',reuse=True):
-            batch_shape = x.shape
-            iyr = int(450 / batch_shape[1].value)
-            ixr = int(450 / batch_shape[2].value)
-            ix = batch_shape[1].value
-            iy = batch_shape[2].value
-            batch_d = tf.slice(x, (0, 0, 0, 0), (1, -1, -1, -1))
-            batch_s = tf.slice(x, (50, 0, 0, 0), (1, -1, -1, -1))
-            batch_d = tf.image.resize_images(
-                images=batch_d,
-                size=(iyr * iy, ixr * ix),
-                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
-            )
-            batch_s = tf.image.resize_images(
-                images=batch_s,
-                size=(iyr * iy, ixr * ix),
-                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
-            )
-            slim.summary.image("batch_d_input", batch_d)
-            slim.summary.image("batch_s_input", batch_s)
         conv1 = slim.conv2d(
             inputs=x,
             num_outputs=96,
@@ -91,39 +71,68 @@ class siamese_fc:
                 b2 = slim.conv2d(b2, 128, [3, 3], 1, scope='b2')
             conv5 = tf.concat([b1, b2], 3)
 
-        with tf.variable_scope('out_image','slim_net',reuse=tf.AUTO_REUSE):
+        batch_shape = x.shape
+        iyr = int(450 / batch_shape[1].value)
+        ixr = int(450 / batch_shape[2].value)
+        ix = batch_shape[1].value
+        iy = batch_shape[2].value
+        with tf.variable_scope('input_images_d', reuse=True):
+            batch_d = tf.slice(x, (0, 0, 0, 0), (1, -1, -1, -1))
+            batch_d = tf.image.resize_images(
+                images=batch_d,
+                size=(iyr * iy, ixr * ix),
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            slim.summary.image("batch_d_input", batch_d)
+        with tf.variable_scope('input_images_s', reuse=True):
+            batch_s = tf.slice(x, (50, 0, 0, 0), (1, -1, -1, -1))
+            batch_s = tf.image.resize_images(
+                images=batch_s,
+                size=(iyr * iy, ixr * ix),
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            )
+            slim.summary.image("batch_s_input", batch_s)
+        with tf.variable_scope('out_image_d', reuse=tf.AUTO_REUSE):
             batch_shape = conv5.shape
             iyr = int(650 / batch_shape[1].value)
             ixr = int(650 / batch_shape[2].value)
             ix = batch_shape[1].value
             iy = batch_shape[2].value
             image_d = tf.slice(conv5,(0,0,0,0),(1,-1,-1,-1))
-            image_s = tf.slice(conv5,(50,0,0,0),(1,-1,-1,-1))
             image_d = tf.reshape(image_d, (iy, ix, batch_shape[3].value))
-            image_s = tf.reshape(image_s, (iy, ix, batch_shape[3].value))
             ix+=2
             iy+=2
             image_d = tf.image.resize_image_with_crop_or_pad(image_d, iy, ix)
-            image_s = tf.image.resize_image_with_crop_or_pad(image_s, iy, ix)
             image_d = tf.reshape(image_d, (iy, ix, 16, 16))
-            image_s = tf.reshape(image_s, (iy, ix, 16, 16))
             image_d = tf.transpose(image_d,(2,0,3,1))
-            image_s = tf.transpose(image_s,(2,0,3,1))
             image_d = tf.reshape(image_d, (1, 16 * iy, 16 * ix, 1))
-            image_s = tf.reshape(image_s, (1, 16 * iy, 16 * ix, 1))
             image_d = tf.image.resize_images(
                 images=image_d,
                 size=(iyr * iy, ixr * ix),
                 method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
             )
+            tf.summary.image("out_d",image_d)
+
+        with tf.variable_scope('out_image_s', reuse=tf.AUTO_REUSE):
+            batch_shape = conv5.shape
+            iyr = int(650 / batch_shape[1].value)
+            ixr = int(650 / batch_shape[2].value)
+            ix = batch_shape[1].value
+            iy = batch_shape[2].value
+            image_s = tf.slice(conv5, (50, 0, 0, 0), (1, -1, -1, -1))
+            image_s = tf.reshape(image_s, (iy, ix, batch_shape[3].value))
+            ix += 2
+            iy += 2
+            image_s = tf.image.resize_image_with_crop_or_pad(image_s, iy, ix)
+            image_s = tf.reshape(image_s, (iy, ix, 16, 16))
+            image_s = tf.transpose(image_s, (2, 0, 3, 1))
+            image_s = tf.reshape(image_s, (1, 16 * iy, 16 * ix, 1))
             image_s = tf.image.resize_images(
                 images=image_s,
                 size=(iyr * iy, ixr * ix),
                 method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
             )
-            tf.summary.image("out_d",image_d)
-            tf.summary.image("out_s",image_s)
-
+            tf.summary.image("out_s", image_s)
         fc1 = slim.conv2d(
             inputs=conv5,
             num_outputs=1024,
