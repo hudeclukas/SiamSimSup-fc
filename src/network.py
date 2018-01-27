@@ -28,7 +28,7 @@ class siamese_fc:
             ix = batch_shape[1].value
             iy = batch_shape[2].value
             batch_d = tf.slice(x, (0, 0, 0, 0), (1, -1, -1, -1))
-            batch_s = tf.slice(x, (50, 0, 0, 0), (1, -1, -1, -1))
+            batch_s = tf.slice(x, (3, 0, 0, 0), (1, -1, -1, -1))
             batch_d = tf.image.resize_images(
                 images=batch_d,
                 size=(iyr * iy, ixr * ix),
@@ -98,7 +98,7 @@ class siamese_fc:
             ix = batch_shape[1].value
             iy = batch_shape[2].value
             image_d = tf.slice(conv5,(0,0,0,0),(1,-1,-1,-1))
-            image_s = tf.slice(conv5,(50,0,0,0),(1,-1,-1,-1))
+            image_s = tf.slice(conv5,(3,0,0,0),(1,-1,-1,-1))
             image_d = tf.reshape(image_d, (iy, ix, batch_shape[3].value))
             image_s = tf.reshape(image_s, (iy, ix, batch_shape[3].value))
             ix+=2
@@ -153,9 +153,9 @@ class siamese_fc:
         with tf.variable_scope('Euclid_dw_'+name, reuse=tf.AUTO_REUSE):
             eucd2 = tf.reduce_sum(tf.pow(tf.subtract(in1, in2), 2), 1, name="e2_" + name)
             eucd = tf.sqrt(eucd2, name="e_" + name)
-            return eucd
+            return eucd, eucd2
 
-    def distanceCanberra(self, in1:tf.Tensor, in2:tf.Tensor, name:str, s=""):
+    def distanceCanberra(self, in1:tf.Tensor, in2:tf.Tensor, name:str):
         with tf.variable_scope('Canberra_dw_'+name, reuse=tf.AUTO_REUSE):
             in1_abs = tf.abs(in1,name+'_a_in1')
             in2_abs = tf.abs(in2,name+'_a_in2')
@@ -168,10 +168,12 @@ class siamese_fc:
         y_t = tf.subtract(1.0, tf.convert_to_tensor(self.y, dtype=tf.float32, name="labels"), name="dissimilarity")
         margin = tf.constant(self._margin, name="margin", dtype=tf.float32)
 
-        # eucd = self.distanceEuclid(self.network1, self.network2, 'eucd-loss')
-        # eucd2 = tf.pow(eucd, 2, 'eucd-loss-pow')
+        # canbd , canbd2 = self.distanceEuclid(self.network1, self.network2, 'eucd-loss')
 
-        canbd = self.distanceCanberra(self.network1,self.network2,'loss_fn')
+        canbd = tf.divide(tf.reduce_sum(tf.divide(tf.abs(tf.subtract(self.network1, self.network2)),
+                                        tf.add(tf.add(tf.abs(self.network1), tf.abs(self.network2)), tf.constant(0.0001,dtype=tf.float32))), axis=1
+                                        ), tf.constant(1000, tf.float32),
+                                        name='canberra_dst')
         canbd2 = tf.pow(canbd, 2, 'canb_2')
 
         try:
@@ -189,6 +191,7 @@ class siamese_fc:
 
         losses = tf.add(similar, dissimilar, name="losses")
         loss = tf.reduce_mean(losses, name="loss")
+        # loss=tf.reduce_mean(canbd)
         try:
             tf.check_numerics(loss, 'Check of the loss: ')
         except tf.errors.InvalidArgumentError:
@@ -198,7 +201,15 @@ class siamese_fc:
 
         return loss
 
-def similarity(vec1, vec2):
+def similarityEc(vec1, vec2):
     eucd2 = tf.reduce_sum(tf.pow(tf.subtract(vec1, vec2), 2), 1, name="euclid2_test")
     eucd = tf.sqrt(eucd2, name="euclid_test")
     return eucd
+
+def similarityCb(vec1, vec2):
+    canbd = tf.divide(tf.reduce_sum(tf.divide(tf.abs(tf.subtract(vec1, vec2)),
+                                              tf.add(tf.add(tf.abs(vec1), tf.abs(vec2)),
+                                                     tf.constant(0.0001, dtype=tf.float32))), axis=1
+                                    ), tf.constant(1000, tf.float32),
+                      name='canberra_dst')
+    return canbd
