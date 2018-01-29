@@ -12,18 +12,18 @@ import evaluation_metrics as em
 
 # PATH_2_SEG_BIN = "D:/Vision_Images/Berkeley_segmented/BSDS300/segments_c3+labels"
 PATH_2_SEG_BIN_Berk = "D:/HudecL/Pexels/TexDat/berk+texd/TexDat/berkeley"
-PATH_2_SEG_BIN_TexD = "D:/Vision_Images/Pexels_textures/TexDat/official"
+PATH_2_SEG_BIN_TexD = "D:/HudecL/Pexels/TexDat/official_textures"
 PATH_2_SIMILARITIES = "D:/HudecL/Pexels/TexDat/similarities"
 SIMILARITIES_EXTENSION = ".sim"
-MODEL_NAME = "texdat_norm-canberra"
+MODEL_NAME = "texdat_norm-canberra-model-2"
 # MODEL_NAME = "texdat_filtered_new_try"
 IMAGE_SIZE = (150, 150, 1)
-MAX_ITERS = 50
+MAX_ITERS = 10001
 
 
 def main(_arg_):
     tf.logging.set_verbosity(tf.logging.INFO)
-    siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=3.5)
+    siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=4.7)
 
     # supsim_berk = dl.SUPSIM(PATH_2_SEG_BIN_Berk, 100, IMAGE_SIZE, True)
     supsim_texd = dl.SUPSIM(PATH_2_SEG_BIN_TexD, 100, IMAGE_SIZE, True)
@@ -55,7 +55,7 @@ def main(_arg_):
     if os.path.exists("model/" + MODEL_NAME + "/checkpoint"):
         saver.restore(sess, model_ckpt)
 
-    if True:
+    if False:
         supsim = supsim_texd
         model_name_path = 'model/' + MODEL_NAME
         if not os.path.exists(model_name_path):
@@ -63,7 +63,7 @@ def main(_arg_):
         saver.save(sess, model_name_path + '/model')
         file_writer = tf.summary.FileWriter('board/logs/' + MODEL_NAME, sess.graph)
         # dl.SUPSIM.visualize=True
-        for epoch in range(0, 1):
+        for epoch in range(0, 2):
             print("Epoch {:01d}".format(epoch))
             # if epoch == 3:
             #     supsim = supsim_texd
@@ -75,7 +75,7 @@ def main(_arg_):
             siamese.dropout_prob = dropout_prob
             for step in range(0, MAX_ITERS):
                 step = MAX_ITERS * epoch + step
-                (batch_1, batch_2, labels) = supsim.next_batch(supsim.train.data, batch_size=6, image_size=IMAGE_SIZE)
+                (batch_1, batch_2, labels) = supsim.next_batch(supsim.train.data, batch_size=100, image_size=IMAGE_SIZE)
                 l_rate = 0.002 / (1.75 * float(epoch + 1))
                 summary, _, loss_v = sess.run(
                     [merged_summary, train_step, siamese.loss], feed_dict={
@@ -84,10 +84,10 @@ def main(_arg_):
                         siamese.y: labels,
                         learning_rate: l_rate
                     })
-                if step % 1 == 0 and step >= 0:
+                if step % 10 == 0:
                     print("Step: {:04d} loss: {:3.8f}".format(step, loss_v))
 
-                if step % 100 == 0:
+                if step % 100 == 0 and step >= 0:
                     file_writer.add_summary(summary, step)
 
                     # if step % 2500 == 0:
@@ -140,19 +140,42 @@ def main(_arg_):
             siamese.training = False
             all_results_siam = None
             siamese.training = False
-            path = "D:/HudecL/test_batches-texd_norm2/"
-            for i in range(150):
+            path = "D:/HudecL/TestBatches/texdat_official-canberra-2/"
+            for i in range(90):
                 x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=100, image_size=IMAGE_SIZE)
-                os.mkdir(path+"batch-"+str(i))
+                os.mkdir(path + "batch-" + str(i))
+                os.mkdir(path + "batch-" + str(i) + "/tp")
+                os.mkdir(path + "batch-" + str(i) + "/tn")
+                os.mkdir(path + "batch-" + str(i) + "/fp")
+                os.mkdir(path + "batch-" + str(i) + "/fn")
                 vec1 = siamese.network1.eval({siamese.x1: x_s_1})
                 vec2 = siamese.network2.eval({siamese.x2: x_s_2})
                 tf_sim = nw.similarityCb(vec1, vec2)
                 similarity = sess.run(tf_sim)
                 for j in range(len(x_l)):
-                    name1 = path+"batch-"+str(i)+"/b"+str(i)+"-pair"+str(j)+"-s1-"+str(int(x_l[j]))+"-"+str(similarity[j])+".png"
-                    name2 = path+"batch-"+str(i)+"/b"+str(i)+"-pair"+str(j)+"-s2-"+str(int(x_l[j]))+"-"+str(similarity[j])+".png"
-                    plt.imsave(name1, x_s_1[j].reshape((150,150)), cmap="gray")
-                    plt.imsave(name2, x_s_2[j].reshape((150,150)), cmap="gray")
+                    if x_l[j] == 1 and similarity[j] < 1:
+                        name1 = path + "batch-" + str(i) + "/tp" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
+                            x_l[j]) + "-" + str(similarity[j]) + ".png"
+                        name2 = path + "batch-" + str(i) + "/tp" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
+                            x_l[j]) + "-" + str(similarity[j]) + ".png"
+                    if x_l[j] == 1 and similarity[j] > 1:
+                        name1 = path + "batch-" + str(i) + "/fn" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
+                            x_l[j]) + "-" + str(similarity[j]) + ".png"
+                        name2 = path + "batch-" + str(i) + "/fn" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
+                            x_l[j]) + "-" + str(similarity[j]) + ".png"
+                    if x_l[j] == 0 and similarity[j] > 1:
+                        name1 = path + "batch-" + str(i) + "/tn" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
+                            x_l[j]) + "-" + str(similarity[j]) + ".png"
+                        name2 = path + "batch-" + str(i) + "/tn" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
+                            x_l[j]) + "-" + str(similarity[j]) + ".png"
+                    if x_l[j] == 0 and similarity[j] < 1:
+                        name1 = path + "batch-" + str(i) + "/fp" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
+                            x_l[j]) + "-" + str(similarity[j]) + ".png"
+                        name2 = path + "batch-" + str(i) + "/fp" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
+                            x_l[j]) + "-" + str(similarity[j]) + ".png"
+
+                    plt.imsave(name1, x_s_1[j].reshape((150, 150)), cmap="gray")
+                    plt.imsave(name2, x_s_2[j].reshape((150, 150)), cmap="gray")
                 result = list(zip(similarity, x_l))
                 del tf_sim
                 del similarity
@@ -176,11 +199,11 @@ def main(_arg_):
             print('Precision: {:0.6f} Recall: {:0.6f} Accuracy: {:0.6f} F1: {:0.6f}'.format(precision, recall, accuracy,
                                                                                             f1_score))
 
-            thr = np.arange(0, 600, 1) / 100
+            thr = np.arange(0, 1000, 1) / 100
             tpr, fpr = np.array([em.tpr_fpr(all_results_siam, th) for th in thr]).transpose()
             auc = metrics.auc(fpr, tpr)
             plt.figure()
-            plt.plot(fpr, tpr, color='darkorange', label='ROC Siam squares aoc: {:0.3f}'.format(auc))
+            plt.plot(fpr, tpr, color='darkorange', label='ROC Siam textures auc: {:0.3f}'.format(auc))
             plt.plot([1, 0], [1, 0], color='navy', linestyle='--')
             plt.xlim([0.0, 1.0])
             plt.ylim([0.0, 1.05])
