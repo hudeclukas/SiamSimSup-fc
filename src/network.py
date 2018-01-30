@@ -157,11 +157,19 @@ class siamese_fc:
 
     def distanceCanberra(self, in1:tf.Tensor, in2:tf.Tensor, name:str):
         with tf.variable_scope('Canberra_dw_'+name, reuse=tf.AUTO_REUSE):
-            in1_abs = tf.abs(in1,name+'_a_in1')
-            in2_abs = tf.abs(in2,name+'_a_in2')
-            in1_in2_abs = tf.abs(tf.subtract(in1, in2, name + '_a_in1_in2'))
-            canbd = tf.reduce_sum(tf.divide(in1_in2_abs,tf.add(tf.add(in1_abs,in2_abs),tf.constant(0.00001,dtype=tf.float32))),axis=1,name='canberra_'+name)
+            canbd = tf.divide(tf.reduce_sum(tf.divide(tf.abs(tf.subtract(in1, in2)),
+                                              tf.add(tf.add(tf.abs(in1), tf.abs(in2)),
+                                                     tf.constant(0.0001, dtype=tf.float32))), axis=1
+                                    ), tf.constant(1000, tf.float32),
+                      name='canberra_dst')
             return canbd
+
+    def distanceAED(self, in1:tf.Tensor, in2:tf.Tensor, name:str):
+        with tf.variable_scope('Average_Euclidean_Distance', reuse=tf.AUTO_REUSE):
+            aed2 = tf.reduce_sum(tf.pow(tf.divide(tf.subtract(in1,in2),tf.add(tf.add(tf.abs(in1), tf.abs(in2)),tf.constant(0.00001, dtype=tf.float32))), 2), axis=1, name=name+'_2')
+            aed = tf.sqrt(aed2,name=name)
+            return aed, aed2
+
 
     def loss_contrastive(self):
         # one label means similar, zero is value of dissimilarity
@@ -170,28 +178,25 @@ class siamese_fc:
 
         # canbd , canbd2 = self.distanceEuclid(self.network1, self.network2, 'eucd-loss')
 
-        canbd = tf.divide(tf.reduce_sum(tf.divide(tf.abs(tf.subtract(self.network1, self.network2)),
-                                        tf.add(tf.add(tf.abs(self.network1), tf.abs(self.network2)), tf.constant(0.0001,dtype=tf.float32))), axis=1
-                                        ), tf.constant(1000, tf.float32),
-                                        name='canberra_dst')
-        canbd2 = tf.pow(canbd, 2, 'canb_2')
+        aed, aed2 = self.distanceAED(self.network1, self.network2, 'aed')
 
         try:
-            tf.check_numerics(canbd, 'Check of the Canberra distance (canbd): ')
+            tf.check_numerics(aed, 'Check of the average euclidean distance (AED): ')
         except tf.errors.InvalidArgumentError:
-            print('InvalidArgumentError in Canberra distance "canbd"')
+            print('InvalidArgumentError in average euclidean distance "AED"')
         else:
-            tf.summary.histogram('canberra_distance', canbd)
+            tf.summary.histogram('canberra_distance', aed)
 
         y_f = tf.subtract(1.0, y_t, name="1-y")
         half_f = tf.multiply(y_f, 0.5, name="y_f/2")
-        similar = tf.multiply(half_f, canbd2, name="con_l")
+        similar = tf.multiply(half_f, aed2, name="con_l")
         half_t = tf.multiply(y_t, 0.5, name="y_t/2")
-        dissimilar = tf.multiply(half_t, tf.maximum(0.0, tf.subtract(margin, canbd)))
+        dissimilar = tf.multiply(half_t, tf.maximum(0.0, tf.subtract(margin, aed)))
 
         losses = tf.add(similar, dissimilar, name="losses")
         loss = tf.reduce_mean(losses, name="loss")
-        # loss=tf.reduce_mean(canbd)
+        # loss=tf.reduce_mean(aed)
+
         try:
             tf.check_numerics(loss, 'Check of the loss: ')
         except tf.errors.InvalidArgumentError:
@@ -213,3 +218,6 @@ def similarityCb(vec1, vec2):
                                     ), tf.constant(1000, tf.float32),
                       name='canberra_dst')
     return canbd
+
+def similarityAED(vec1, vec2):
+    return tf.sqrt(tf.reduce_sum(tf.pow(tf.divide(tf.subtract(vec1, vec2), tf.add(tf.add(tf.abs(vec1), tf.abs(vec2)), tf.constant(0.00001, dtype=tf.float32))), 2), axis=1))

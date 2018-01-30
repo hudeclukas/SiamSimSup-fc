@@ -15,15 +15,15 @@ PATH_2_SEG_BIN_Berk = "D:/HudecL/Pexels/TexDat/berk+texd/TexDat/berkeley"
 PATH_2_SEG_BIN_TexD = "D:/HudecL/Pexels/TexDat/official_textures"
 PATH_2_SIMILARITIES = "D:/HudecL/Pexels/TexDat/similarities"
 SIMILARITIES_EXTENSION = ".sim"
-MODEL_NAME = "texdat_norm-canberra-model-2"
+MODEL_NAME = "texdat_norm-aed-model"
 # MODEL_NAME = "texdat_filtered_new_try"
 IMAGE_SIZE = (150, 150, 1)
-MAX_ITERS = 10001
+MAX_ITERS = 20001
 
 
 def main(_arg_):
     tf.logging.set_verbosity(tf.logging.INFO)
-    siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=4.7)
+    siamese = nw.siamese_fc(image_size=IMAGE_SIZE, margin=20)
 
     # supsim_berk = dl.SUPSIM(PATH_2_SEG_BIN_Berk, 100, IMAGE_SIZE, True)
     supsim_texd = dl.SUPSIM(PATH_2_SEG_BIN_TexD, 100, IMAGE_SIZE, True)
@@ -63,7 +63,7 @@ def main(_arg_):
         saver.save(sess, model_name_path + '/model')
         file_writer = tf.summary.FileWriter('board/logs/' + MODEL_NAME, sess.graph)
         # dl.SUPSIM.visualize=True
-        for epoch in range(0, 2):
+        for epoch in range(0, 5):
             print("Epoch {:01d}".format(epoch))
             # if epoch == 3:
             #     supsim = supsim_texd
@@ -128,7 +128,7 @@ def main(_arg_):
                     siamese.training = False
                     vec1 = siamese.network1.eval({siamese.x1: x_s_1})
                     vec2 = siamese.network2.eval({siamese.x2: x_s_2})
-                    similarity = sess.run(nw.similarityCb(vec1, vec2))
+                    similarity = sess.run(nw.similarityAED(vec1, vec2))
                     result = list(zip(similarity, x_l))
                     del similarity
                     print(result)
@@ -140,7 +140,7 @@ def main(_arg_):
             siamese.training = False
             all_results_siam = None
             siamese.training = False
-            path = "D:/HudecL/TestBatches/texdat_official-canberra-2/"
+            path = "D:/HudecL/TestBatches/texdat_official-aed/"
             for i in range(90):
                 x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=100, image_size=IMAGE_SIZE)
                 os.mkdir(path + "batch-" + str(i))
@@ -150,7 +150,7 @@ def main(_arg_):
                 os.mkdir(path + "batch-" + str(i) + "/fn")
                 vec1 = siamese.network1.eval({siamese.x1: x_s_1})
                 vec2 = siamese.network2.eval({siamese.x2: x_s_2})
-                tf_sim = nw.similarityCb(vec1, vec2)
+                tf_sim = nw.similarityAED(vec1, vec2)
                 similarity = sess.run(tf_sim)
                 for j in range(len(x_l)):
                     if x_l[j] == 1 and similarity[j] < 1:
@@ -232,7 +232,7 @@ def main(_arg_):
                     print('\t{:d}/{:d} Superpixel: {:d} '.format(j+1, sups_count, image_data.objects[i].labels[j]))
                     batch_of_one_patch = dl.resize_batch_images([image_data.objects[i].superpixels[j]] * len(batch_of_all_patches),IMAGE_SIZE)
                     vec2 = siamese.network2.eval({siamese.x2: batch_of_one_patch})
-                    tf_sim = nw.similarityCb(vec1, vec2)
+                    tf_sim = nw.similarityAED(vec1, vec2)
                     similarity = sess.run(tf_sim)
                     image_data.objects[i].similarity.append(similarity)
                     del tf_sim
@@ -252,7 +252,7 @@ def main(_arg_):
                     x1 = dl.resize_batch_images(x1, IMAGE_SIZE)
                     vec1 = siamese.network1.eval({siamese.x1: x1})
                     vec2 = siamese.network2.eval({siamese.x2: x2})
-                    tf_sim = nw.similarityCb(vec1, vec2)
+                    tf_sim = nw.similarityAED(vec1, vec2)
                     similarity = sess.run(tf_sim)
                     print('Inner similarity of object {:d}: '.format(i))
                     print(similarity)
@@ -269,7 +269,7 @@ def main(_arg_):
                         x1 = dl.resize_batch_images(x1, IMAGE_SIZE)
                         vec1 = siamese.network1.eval({siamese.x1: x1})
                         vec2 = siamese.network2.eval({siamese.x2: x2})
-                        tf_sim = nw.similarityCb(vec1, vec2)
+                        tf_sim = nw.similarityAED(vec1, vec2)
                         similarity = sess.run(tf_sim)
                         print('Outer similarity of objects i {:d} j {:d}: '.format(i, j))
                         print(similarity)
