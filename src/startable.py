@@ -143,39 +143,39 @@ def main(_arg_):
             path = "D:/HudecL/TestBatches/texdat_official-canberra-2/"
             for i in range(90):
                 x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=100, image_size=IMAGE_SIZE)
-                os.mkdir(path + "batch-" + str(i))
-                os.mkdir(path + "batch-" + str(i) + "/tp")
-                os.mkdir(path + "batch-" + str(i) + "/tn")
-                os.mkdir(path + "batch-" + str(i) + "/fp")
-                os.mkdir(path + "batch-" + str(i) + "/fn")
+                # os.mkdir(path + "batch-" + str(i))
+                # os.mkdir(path + "batch-" + str(i) + "/tp")
+                # os.mkdir(path + "batch-" + str(i) + "/tn")
+                # os.mkdir(path + "batch-" + str(i) + "/fp")
+                # os.mkdir(path + "batch-" + str(i) + "/fn")
                 vec1 = siamese.network1.eval({siamese.x1: x_s_1})
                 vec2 = siamese.network2.eval({siamese.x2: x_s_2})
                 tf_sim = nw.similarityCb(vec1, vec2)
                 similarity = sess.run(tf_sim)
-                for j in range(len(x_l)):
-                    if x_l[j] == 1 and similarity[j] < 1:
-                        name1 = path + "batch-" + str(i) + "/tp" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
-                            x_l[j]) + "-" + str(similarity[j]) + ".png"
-                        name2 = path + "batch-" + str(i) + "/tp" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
-                            x_l[j]) + "-" + str(similarity[j]) + ".png"
-                    if x_l[j] == 1 and similarity[j] > 1:
-                        name1 = path + "batch-" + str(i) + "/fn" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
-                            x_l[j]) + "-" + str(similarity[j]) + ".png"
-                        name2 = path + "batch-" + str(i) + "/fn" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
-                            x_l[j]) + "-" + str(similarity[j]) + ".png"
-                    if x_l[j] == 0 and similarity[j] > 1:
-                        name1 = path + "batch-" + str(i) + "/tn" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
-                            x_l[j]) + "-" + str(similarity[j]) + ".png"
-                        name2 = path + "batch-" + str(i) + "/tn" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
-                            x_l[j]) + "-" + str(similarity[j]) + ".png"
-                    if x_l[j] == 0 and similarity[j] < 1:
-                        name1 = path + "batch-" + str(i) + "/fp" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
-                            x_l[j]) + "-" + str(similarity[j]) + ".png"
-                        name2 = path + "batch-" + str(i) + "/fp" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
-                            x_l[j]) + "-" + str(similarity[j]) + ".png"
-
-                    plt.imsave(name1, x_s_1[j].reshape((150, 150)), cmap="gray")
-                    plt.imsave(name2, x_s_2[j].reshape((150, 150)), cmap="gray")
+                # for j in range(len(x_l)):
+                #     if x_l[j] == 1 and similarity[j] < 1:
+                #         name1 = path + "batch-" + str(i) + "/tp" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
+                #             x_l[j]) + "-" + str(similarity[j]) + ".png"
+                #         name2 = path + "batch-" + str(i) + "/tp" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
+                #             x_l[j]) + "-" + str(similarity[j]) + ".png"
+                #     if x_l[j] == 1 and similarity[j] > 1:
+                #         name1 = path + "batch-" + str(i) + "/fn" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
+                #             x_l[j]) + "-" + str(similarity[j]) + ".png"
+                #         name2 = path + "batch-" + str(i) + "/fn" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
+                #             x_l[j]) + "-" + str(similarity[j]) + ".png"
+                #     if x_l[j] == 0 and similarity[j] > 1:
+                #         name1 = path + "batch-" + str(i) + "/tn" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
+                #             x_l[j]) + "-" + str(similarity[j]) + ".png"
+                #         name2 = path + "batch-" + str(i) + "/tn" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
+                #             x_l[j]) + "-" + str(similarity[j]) + ".png"
+                #     if x_l[j] == 0 and similarity[j] < 1:
+                #         name1 = path + "batch-" + str(i) + "/fp" + "/b" + str(i) + "-pair" + str(j) + "-s1-" + str(
+                #             x_l[j]) + "-" + str(similarity[j]) + ".png"
+                #         name2 = path + "batch-" + str(i) + "/fp" + "/b" + str(i) + "-pair" + str(j) + "-s2-" + str(
+                #             x_l[j]) + "-" + str(similarity[j]) + ".png"
+                #
+                #     plt.imsave(name1, x_s_1[j].reshape((150, 150)), cmap="gray")
+                #     plt.imsave(name2, x_s_2[j].reshape((150, 150)), cmap="gray")
                 result = list(zip(similarity, x_l))
                 del tf_sim
                 del similarity
@@ -203,7 +203,7 @@ def main(_arg_):
             tpr, fpr = np.array([em.tpr_fpr(all_results_siam, th) for th in thr]).transpose()
             auc = metrics.auc(fpr, tpr)
             plt.figure()
-            plt.plot(fpr, tpr, color='darkorange', label='ROC Siam textures auc: {:0.3f}'.format(auc))
+            plt.plot(fpr, tpr, color='darkorange', label='ROC Siam Canberra auc: {:0.3f}'.format(auc))
             plt.plot([1, 0], [1, 0], color='navy', linestyle='--')
             plt.xlim([0.0, 1.0])
             plt.ylim([0.0, 1.05])
