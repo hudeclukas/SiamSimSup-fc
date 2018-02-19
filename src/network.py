@@ -46,21 +46,22 @@ class siamese_fc:
             num_outputs=96,
             kernel_size=[5,5],
             scope='conv1',
-            reuse=tf.AUTO_REUSE
+            reuse=tf.AUTO_REUSE,
+            trainable=self.training
         )
         pool1 = slim.max_pool2d(
             inputs=conv1,
             kernel_size=[3, 3],
             stride=3,
-            scope='pool1'
+            scope='pool1',
         )
         with tf.variable_scope('conv2', reuse=tf.AUTO_REUSE):
             b1, b2 = tf.split(pool1, 2, 3)
-            b1 = slim.conv2d(b1, 128, [5, 5], scope='b1')
+            b1 = slim.conv2d(b1, 128, [5, 5], scope='b1', trainable=self.training)
             # The original implementation has bias terms for all convolution, but
             # it actually isn't necessary if the convolution layer is followed by a batch
             # normalization layer since batch norm will subtract the mean.
-            b2 = slim.conv2d(b2, 128, [5, 5], scope='b2')
+            b2 = slim.conv2d(b2, 128, [5, 5], scope='b2', trainable=self.training)
             conv2 = tf.concat([b1, b2], 3)
         pool2 = slim.max_pool2d(
             inputs=conv2,
@@ -74,12 +75,13 @@ class siamese_fc:
             kernel_size=[3, 3],
             stride=1,
             scope='conv3',
-            reuse=tf.AUTO_REUSE
+            reuse=tf.AUTO_REUSE,
+            trainable=self.training
         )
         with tf.variable_scope('conv4',reuse=tf.AUTO_REUSE):
             b1, b2 = tf.split(conv3, 2, 3)
-            b1 = slim.conv2d(b1, 192, [3, 3], 1, scope='b1')
-            b2 = slim.conv2d(b2, 192, [3, 3], 1, scope='b2')
+            b1 = slim.conv2d(b1, 192, [3, 3], 1, scope='b1', trainable=self.training)
+            b2 = slim.conv2d(b2, 192, [3, 3], 1, scope='b2', trainable=self.training)
             conv4 = tf.concat([b1, b2], 3)
         # Conv 5 with only convolution, has bias
         with tf.variable_scope('conv5',reuse=tf.AUTO_REUSE):
@@ -87,8 +89,8 @@ class siamese_fc:
                                 activation_fn=None,
                                 normalizer_fn=None):
                 b1, b2 = tf.split(conv4, 2, 3)
-                b1 = slim.conv2d(b1, 128, [3, 3], 1, scope='b1')
-                b2 = slim.conv2d(b2, 128, [3, 3], 1, scope='b2')
+                b1 = slim.conv2d(b1, 128, [3, 3], 1, scope='b1', trainable=self.training)
+                b2 = slim.conv2d(b2, 128, [3, 3], 1, scope='b2', trainable=self.training)
             conv5 = tf.concat([b1, b2], 3)
 
         with tf.variable_scope('out_image','slim_net',reuse=tf.AUTO_REUSE):
@@ -130,7 +132,8 @@ class siamese_fc:
             kernel_size=[1, 1],
             stride=1,
             scope='fc1',
-            reuse=tf.AUTO_REUSE
+            reuse=tf.AUTO_REUSE,
+            trainable=self.training
         )
         dropout = slim.dropout(
             fc1,
@@ -144,72 +147,58 @@ class siamese_fc:
             kernel_size=[1, 1],
             stride=1,
             scope='fc2',
-            reuse=tf.AUTO_REUSE
+            reuse=tf.AUTO_REUSE,
+            trainable=self.training
         )
         flatten = slim.flatten(fc2, scope='flatten')
         return flatten
 
-    def distanceEuclid(self, in1:tf.Tensor, in2:tf.Tensor, name:str):
-        with tf.variable_scope('Euclid_dw_'+name, reuse=tf.AUTO_REUSE):
-            eucd2 = tf.reduce_sum(tf.pow(tf.subtract(in1, in2), 2), 1, name="e2_" + name)
-            eucd = tf.sqrt(eucd2, name="e_" + name)
+    def distanceEuclid(self):
+        with tf.variable_scope('Euclid_dw', reuse=True):
+            eucd2 = tf.reduce_sum(tf.pow(tf.subtract(self.network1, self.network2), 2), 1, name="eucd2")
+            eucd = tf.sqrt(eucd2, name="eucd")
             return eucd, eucd2
 
-    def distanceCanberra(self, in1:tf.Tensor, in2:tf.Tensor, name:str):
-        with tf.variable_scope('Canberra_dw_'+name, reuse=tf.AUTO_REUSE):
-            in1_abs = tf.abs(in1,name+'_a_in1')
-            in2_abs = tf.abs(in2,name+'_a_in2')
-            in1_in2_abs = tf.abs(tf.subtract(in1, in2, name + '_a_in1_in2'))
-            canbd = tf.reduce_sum(tf.divide(in1_in2_abs,tf.add(tf.add(in1_abs,in2_abs),tf.constant(0.00001,dtype=tf.float32))),axis=1,name='canberra_'+name)
-            return canbd
+    def distanceCanberra(self):
+        with tf.variable_scope('Canberra_dw', reuse=True):
+            canbd = tf.divide(tf.reduce_sum(tf.divide(tf.abs(tf.subtract(self.network1, self.network2)),
+                                            tf.add(tf.add(tf.abs(self.network1), tf.abs(self.network2)),
+                                                   tf.constant(0.0001,dtype=tf.float32))), axis=1
+                                           ), tf.constant(1000, tf.float32),
+                                        name='canberra_dst')
+            canbd2 = tf.pow(canbd, 2, 'dist_2')
+            return canbd, canbd2
 
     def loss_contrastive(self):
         # one label means similar, zero is value of dissimilarity
         y_t = tf.subtract(1.0, tf.convert_to_tensor(self.y, dtype=tf.float32, name="labels"), name="dissimilarity")
         margin = tf.constant(self._margin, name="margin", dtype=tf.float32)
 
-        # canbd , canbd2 = self.distanceEuclid(self.network1, self.network2, 'eucd-loss')
+        dist , dist2 = self.distanceEuclid()
 
-        canbd = tf.divide(tf.reduce_sum(tf.divide(tf.abs(tf.subtract(self.network1, self.network2)),
-                                        tf.add(tf.add(tf.abs(self.network1), tf.abs(self.network2)), tf.constant(0.0001,dtype=tf.float32))), axis=1
-                                        ), tf.constant(1000, tf.float32),
-                                        name='canberra_dst')
-        canbd2 = tf.pow(canbd, 2, 'canb_2')
-
-        try:
-            tf.check_numerics(canbd, 'Check of the Canberra distance (canbd): ')
-        except tf.errors.InvalidArgumentError:
-            print('InvalidArgumentError in Canberra distance "canbd"')
-        else:
-            tf.summary.histogram('canberra_distance', canbd)
+        tf.summary.histogram('distance', dist)
 
         y_f = tf.subtract(1.0, y_t, name="1-y")
         half_f = tf.multiply(y_f, 0.5, name="y_f/2")
-        similar = tf.multiply(half_f, canbd2, name="con_l")
+        similar = tf.multiply(half_f, dist2, name="con_l")
         half_t = tf.multiply(y_t, 0.5, name="y_t/2")
-        dissimilar = tf.multiply(half_t, tf.maximum(0.0, tf.subtract(margin, canbd)))
+        dissimilar = tf.multiply(half_t, tf.maximum(0.0, tf.subtract(margin, dist)))
 
         losses = tf.add(similar, dissimilar, name="losses")
         loss = tf.reduce_mean(losses, name="loss")
-        # loss=tf.reduce_mean(canbd)
-        try:
-            tf.check_numerics(loss, 'Check of the loss: ')
-        except tf.errors.InvalidArgumentError:
-            print('InvalidArgumentError in loss')
-        else:
-            tf.summary.histogram('loss_s', loss)
+        # loss=tf.reduce_mean(dist)
+
+        tf.summary.histogram('loss_s', loss)
 
         return loss
 
-def similarityEc(vec1, vec2):
-    eucd2 = tf.reduce_sum(tf.pow(tf.subtract(vec1, vec2), 2), 1, name="euclid2_test")
-    eucd = tf.sqrt(eucd2, name="euclid_test")
-    return eucd
-
-def similarityCb(vec1, vec2):
-    canbd = tf.divide(tf.reduce_sum(tf.divide(tf.abs(tf.subtract(vec1, vec2)),
-                                              tf.add(tf.add(tf.abs(vec1), tf.abs(vec2)),
-                                                     tf.constant(0.0001, dtype=tf.float32))), axis=1
-                                    ), tf.constant(1000, tf.float32),
-                      name='canberra_dst')
-    return canbd
+class Similarity():
+    def __init__(self):
+        self.vec1 = tf.placeholder(tf.float32, name="placeholder_vec1")
+        self.vec2 = tf.placeholder(tf.float32, name="placeholder_vec2")
+        self.euclid = tf.sqrt(tf.reduce_sum(tf.pow(tf.subtract(self.vec1, self.vec2), 2), 1), name="euclid_test")
+        self.canberra = tf.divide(tf.reduce_sum(tf.divide(tf.abs(tf.subtract(self.vec1, self.vec2)),
+                                                tf.add(tf.add(tf.abs(self.vec1), tf.abs(self.vec2)),
+                                                       tf.constant(0.0001, dtype=tf.float32))), axis=1
+                                                ), tf.constant(1000, tf.float32),
+                                  name='canberra_test')
