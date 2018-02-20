@@ -128,7 +128,7 @@ def main(_arg_):
                         if c > 15:
                             if u in supsim.train.teacher.fn:
                                 supsim.train.teacher.fn.remove(u)
-                    tn_u, tn_c = np.unique(tn,return_counts=True)
+                    tn_u, tn_c = np.unique(tn,return_counts=True, axis=0)
                     for u,c in zip(tn_u,tn_c):
                         if c > 10:
                             if u in supsim.train.teacher.fp:
