@@ -15,7 +15,7 @@ PATH_2_SEG_BIN_TexD = "D:/Vision_Images/Pexels_textures/TexDat/official"
 # PATH_2_SEG_BIN_TexD = "D:/HudecL/Pexels/TexDat/official_textures"
 PATH_2_SIMILARITIES = "D:/HudecL/Pexels/TexDat/similarities"
 SIMILARITIES_EXTENSION = ".sim"
-MODEL_NAME = "replearn_1702182233"
+MODEL_NAME = "replearn_180220"
 # MODEL_NAME = "texdat_filtered_new_try"
 IMAGE_SIZE = (150, 150, 1)
 MAX_ITERS = 25001
@@ -48,7 +48,7 @@ def main(_arg_):
         saver.restore(sess, model_ckpt)
 
     sim_ops = nw.Similarity()
-    if True:
+    if False:
         supsim = supsim_texd
         model_name_path = 'model/' + MODEL_NAME
         if not os.path.exists(model_name_path):
@@ -159,8 +159,8 @@ def main(_arg_):
             all_results_siam = None
             siamese.training = False
             # path = "D:/HudecL/TestBatches/texdat_official-canberra-2/"
-            for i in range(150):
-                x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=16, image_size=IMAGE_SIZE)
+            for i in range(10):
+                x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=10, image_size=IMAGE_SIZE)
                 # os.mkdir(path + "batch-" + str(i))
                 # os.mkdir(path + "batch-" + str(i) + "/tp")
                 # os.mkdir(path + "batch-" + str(i) + "/tn")
@@ -224,6 +224,8 @@ def main(_arg_):
             plt.figure()
             plt.plot(fpr, tpr, color='darkorange', label='ROC Siam Eucd w. trainer auc: {:0.3f}'.format(auc))
             plt.plot([1, 0], [1, 0], color='navy', linestyle='--')
+            plt.plot([fpr[100], fpr[100]],[0,tpr[100]], color='black', linestyle=':',label='fpr:{:0.3f}, tpr:{:0.3f}'.format(fpr[100],tpr[100]))
+            plt.plot([0, fpr[100]],[tpr[100],tpr[100]], color='black', linestyle=':')
             plt.xlim([0.0, 1.0])
             plt.ylim([0.0, 1.05])
             plt.xlabel('False Positive Rate')
