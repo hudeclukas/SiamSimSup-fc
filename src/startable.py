@@ -10,12 +10,12 @@ import network as nw
 import data_loader as dl
 import evaluation_metrics as em
 
-PATH_2_SEG_BIN_TexD = "D:/Vision_Images/Pexels_textures/TexDat/official"
+PATH_2_SEG_BIN_TexD = "D:/Vision_Images/Pexels_textures/TexDat/TexSups/segments"
 # PATH_2_SEG_BIN_Berk = "D:/HudecL/Pexels/TexDat/berk+texd/TexDat/berkeley"
 # PATH_2_SEG_BIN_TexD = "D:/HudecL/Pexels/TexDat/official_textures"
 PATH_2_SIMILARITIES = "D:/HudecL/Pexels/TexDat/similarities"
 SIMILARITIES_EXTENSION = ".sim"
-MODEL_NAME = "replearn_180220"
+MODEL_NAME = "superpixels_without_filling_180815"
 # MODEL_NAME = "texdat_filtered_new_try"
 IMAGE_SIZE = (150, 150, 1)
 MAX_ITERS = 25001
@@ -30,7 +30,7 @@ def main(_arg_):
     print("Starting loading data")
     start = time.time() * 1000
     # supsim_berk.load_data()
-    supsim_texd.load_data()
+    supsim_texd.load_data(only_paths=True)
     print((time.time() * 1000) - start, "ms")
     sess = tf.InteractiveSession()
     learning_rate = tf.placeholder(tf.float32, shape=[])
@@ -48,7 +48,7 @@ def main(_arg_):
         saver.restore(sess, model_ckpt)
 
     sim_ops = nw.Similarity()
-    if False:
+    if True:
         supsim = supsim_texd
         model_name_path = 'model/' + MODEL_NAME
         if not os.path.exists(model_name_path):
@@ -68,7 +68,9 @@ def main(_arg_):
             siamese.dropout_prob = dropout_prob
             for step in range(0, MAX_ITERS):
                 step = MAX_ITERS * epoch + step
-                (batch_1, batch_2, labels) = supsim.next_teacher_batch(batch_size=32, image_size=IMAGE_SIZE)
+                start = time.time() * 1000
+                (batch_1, batch_2, labels) = supsim.next_batch_from_paths(supsim.train.objectsPaths, batch_size=32, image_size=IMAGE_SIZE)
+                print((time.time() * 1000) - start, "ms")
                 l_rate = 0.002 / (1.75 * float(epoch + 1))
                 summary, _, loss_v = sess.run(
                     [merged_summary, train_step, siamese.loss], feed_dict={
@@ -94,7 +96,7 @@ def main(_arg_):
                     print(result)
                     siamese.training = True
 
-                if True:#step % 5000 == 0 and epoch > 1:
+                if False:#step % 5000 == 0 and epoch > 1:
                     print("Validating train...")
 
                     sim_all = None
@@ -159,8 +161,8 @@ def main(_arg_):
             all_results_siam = None
             siamese.training = False
             # path = "D:/HudecL/TestBatches/texdat_official-canberra-2/"
-            for i in range(10):
-                x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=10, image_size=IMAGE_SIZE)
+            for i in range(200):
+                x_s_1, x_s_2, x_l = supsim.next_batch(supsim.test.data, batch_size=50, image_size=IMAGE_SIZE)
                 # os.mkdir(path + "batch-" + str(i))
                 # os.mkdir(path + "batch-" + str(i) + "/tp")
                 # os.mkdir(path + "batch-" + str(i) + "/tn")

@@ -14,6 +14,17 @@ import sklearn.preprocessing as prep
 def resize_batch_images(batch: list, image_size: tuple) -> np.ndarray:
     return np.asarray([transform.resize(image, image_size, mode="reflect") for image in batch])
 
+def paint_image_on_canvas(image:np.ndarray, canvas_size:list, canvas_value:float, prepscale:bool=True) -> np.ndarray:
+    canvas = np.zeros(canvas_size, dtype=np.float32) + canvas_value
+
+    x = image.shape[0] if image.shape[0] < canvas_size[0] else canvas_size[0]
+    y = image.shape[1] if image.shape[1] < canvas_size[1] else canvas_size[1]
+
+    canvas[0:x,0:y]=image[0:x,0:y]
+    if prepscale:
+        canvas = prep.scale(canvas.reshape((canvas_size[0] * canvas_size[1] * canvas_size[2]))).reshape(canvas_size)
+
+    return canvas
 
 class ImageObjects:
     def __init__(self):
@@ -49,68 +60,152 @@ class ObjectSuperpixels:
 class SUPSIM:
     visualize = False
 
+    class ObjectDataContainer:
+        def __init__(self):
+            self.name = ""
+            self.paths = []
+
     def __init__(self, path, batch_size=128, image_size=None, use_grayscale=False):
         self.batch_size = batch_size
         self.train = SUPSIM.train(path, batch_size, image_size, use_grayscale)
         self.test = SUPSIM.test(path, batch_size, image_size, use_grayscale)
+        self.only_paths = False
 
     def set_path(self, path):
         if os.path.exists(os.path.abspath(path)):
             self.train.abs_path = os.path.abspath(path) + "\\train"
             self.test.abs_path = os.path.abspath(path) + "\\test"
 
-    def load_data(self):
-        self.read_data_to_array(self.train.abs_path, train=True)
-        self.read_data_to_array(self.test.abs_path, test=True)
+    def load_data(self, only_paths: bool = False):
+        self.read_data_to_array(self.train.abs_path, train=True, only_paths=only_paths)
+        self.read_data_to_array(self.test.abs_path, test=True, only_paths=only_paths)
+        self.only_paths = only_paths
         return True
 
-    def read_data_to_array(self, abspath=None, train=False, test=False):
+    @staticmethod
+    def read_segment_file(abspath: str):
+        if not os.path.exists(abspath):
+            return
+        try:
+            with open(abspath, "rb") as bf:
+                objidx = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                supidx = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                channels = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                rows = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                cols = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+
+                data = np.empty(shape=[rows, cols, channels], dtype=np.ubyte)
+
+                bf.readinto(data.data)
+                data = (data/256).astype(np.float32)
+                bf.close()
+                return data
+        except IOError:
+            print("File {:s} does not exist".format(abspath))
+
+    def read_data_to_array(self, abspath=None, only_paths: bool = False, train=False, test=False):
         if not os.path.exists(abspath):
             return
         if not (train or test):
             return
-        print("Loading from \""+abspath +"\"")
+        print("Loading from \"" + abspath + "\"")
         files = os.listdir(abspath)
+        files_as_objects = {}
         for file in files:
-            img_objs = ImageObjects()
-            img_objs.name = file
-            try:
-                with open(os.path.join(abspath, file), "rb") as bf:
-                    channels = int.from_bytes(bf.read(4), byteorder="little", signed=False)
-                    objs = int.from_bytes(bf.read(4), byteorder="little", signed=False)
-                    for o in range(objs):
-                        obj_sups = ObjectSuperpixels()
-                        sups = int.from_bytes(bf.read(4), byteorder="little", signed=False)
-                        for s in range(sups):
-                            if file.endswith('.supl'):
-                                label = int.from_bytes(bf.read(4), byteorder="little", signed=False)
-                                obj_sups.labels.append(label)
-                            rows = int.from_bytes(bf.read(4), byteorder="little", signed=False)
-                            cols = int.from_bytes(bf.read(4), byteorder="little", signed=False)
-                            data = np.empty(shape=[rows, cols, channels], dtype=np.ubyte)
-                            bf.readinto(data.data)
-                            # data = (data / 255).astype(np.float32)
-                            data = prep.scale(data.reshape((rows*cols*channels))).reshape((rows, cols, channels))
-                            # plt.imshow(data)
-                            obj_sups.superpixels.append(data)
-                        if train:
-                            self.train.append(obj_sups)
-                        elif test:
-                            self.test.append(obj_sups)
-                        img_objs.objects.append(obj_sups)
-                    bf.close()
-                if train:
-                    self.train.add_object(img_objs)
-                elif test:
-                    self.test.add_object(img_objs)
-            except IOError:
-                print("File {:s} does not exist".format(os.path.join(abspath, file)))
-        print(str(len(self.train.data)) + " train objects loaded")
-        print(str(len(self.test.data)) + " test objects loaded")
+            if only_paths:
+                name = file[file.rfind("/") + 1:file[0:file.rfind("_")].rfind("_")]
+                if files_as_objects.get(name):
+                    files_as_objects[name].paths.append(os.path.join(abspath, file))
+                else:
+                    files_as_objects[name] = self.ObjectDataContainer()
+                    files_as_objects[name].name = name
+                    files_as_objects[name].paths.append(os.path.join(abspath, file))
+                img_objs = ImageObjects()
+                img_objs.name = file
+            else:
+                try:
+                    with open(os.path.join(abspath, file), "rb") as bf:
+                        channels = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                        objs = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                        for o in range(objs):
+                            obj_sups = ObjectSuperpixels()
+                            sups = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                            for s in range(sups):
+                                if file.endswith('.supl'):
+                                    label = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                                    obj_sups.labels.append(label)
+                                rows = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                                cols = int.from_bytes(bf.read(4), byteorder="little", signed=False)
+                                data = np.empty(shape=[rows, cols, channels], dtype=np.ubyte)
+                                bf.readinto(data.data)
+                                # data = (data / 255).astype(np.float32)
+                                data = prep.scale(data.reshape((rows * cols * channels))).reshape(
+                                    (rows, cols, channels))
+                                # plt.imshow(data)
+                                obj_sups.superpixels.append(data)
+                            if train:
+                                self.train.append(obj_sups)
+                            elif test:
+                                self.test.append(obj_sups)
+                            img_objs.objects.append(obj_sups)
+                        bf.close()
+                    if train:
+                        self.train.add_object(img_objs)
+                    elif test:
+                        self.test.add_object(img_objs)
+                except IOError:
+                    print("File {:s} does not exist".format(os.path.join(abspath, file)))
+
         if train:
             self.train.data = np.array(self.train.data)
+            self.train.objectsPaths = files_as_objects
+            if only_paths:
+                print(str(len(self.train.objectsPaths)) + " train objects loaded")
+            else:
+                print(str(len(self.train.data)) + " train objects loaded")
         if test:
+            self.test.objectsPaths = files_as_objects
             self.test.data = np.array(self.test.data)
+            if only_paths:
+                print(str(len(self.test.objectsPaths)) + " test objects loaded")
+            else:
+                print(str(len(self.test.data)) + " test objects loaded")
+
+    @staticmethod
+    def next_batch_from_paths(paths: dict, batch_size: int = None, image_size=None, return_paths: bool = False):
+        batch = batch_size
+        if batch_size == None:
+            return []
+        if batch > len(paths):
+            batch = (len(paths) >> 1) << 1
+        neg_size = (int(batch) >> 1) << 1
+        pos_size = int(batch) >> 1
+
+        items = np.array(list(paths.values()))
+        neg_classes = np.random.choice(items, neg_size, False)
+        pos_classes = np.random.choice(items, pos_size, False)
+        neg_s = [random.choice(c.paths) for c in neg_classes]
+        neg_1 = neg_s[0:(neg_size >> 1)]
+        neg_2 = neg_s[(neg_size >> 1):neg_size]
+        pos_s = np.array([random.sample(c.paths, 2) for c in pos_classes])
+
+        batch_1_paths = np.concatenate((neg_1,pos_s[:,0]))
+        batch_2_paths = np.concatenate((neg_2,pos_s[:,1]))
+
+        labels = np.zeros(batch, dtype=np.float32)
+        labels[(batch>>1):batch] = 1
+
+        batch_1 = [SUPSIM.read_segment_file(p) for p in batch_1_paths]
+        batch_2 = [SUPSIM.read_segment_file(p) for p in batch_2_paths]
+
+        if image_size:
+            batch_1 = [paint_image_on_canvas(b, image_size, 0, True) for b in batch_1]
+            batch_2 = [paint_image_on_canvas(b, image_size, 0, True) for b in batch_2]
+
+        if return_paths:
+            return batch_1, batch_2, labels, batch_1_paths, batch_2_paths
+        else:
+            return batch_1, batch_2, labels
 
     @staticmethod
     def next_batch(data, batch_size=None, image_size=None, visualize=False, use_grayscale=False):
@@ -185,6 +280,7 @@ class SUPSIM:
             self.teacher = self.teacher()
             self.image_size = size
             self.use_grayscale = grayscale
+            self.objectsPaths = {}
 
         def append(self, o):
             self.data.append(o)
@@ -192,7 +288,7 @@ class SUPSIM:
         def add_object(self, o):
             self.images.append(o)
 
-        def __iter__(self,min, max):
+        def __iter__(self, min, max):
             self.current_step = min
             self.min = min
             self.max = max
@@ -215,11 +311,11 @@ class SUPSIM:
             else:
                 raise StopIteration
 
-        def next_validation_batch(self, size:int=128):
+        def next_validation_batch(self, size: int = 128):
             neg_size = size
             pos_size = size >> 1
-            neg_classes_idx = np.random.choice(np.arange(len(self.data)-1), neg_size, False)
-            pos_classes_idx = np.random.choice(np.arange(len(self.data)-1), pos_size, False)
+            neg_classes_idx = np.random.choice(np.arange(len(self.data) - 1), neg_size, False)
+            pos_classes_idx = np.random.choice(np.arange(len(self.data) - 1), pos_size, False)
             pos_classes = self.data[pos_classes_idx]
             neg_classes = self.data[neg_classes_idx]
             neg_pairs_count = int(neg_size) >> 1
@@ -243,8 +339,9 @@ class SUPSIM:
             batch_s_t_2 = np.concatenate((neg_s_2, pos_s_2))
             batch_l_t = np.concatenate((neg_l, pos_l))
 
-            neg_s_idx = neg_classes_idx.reshape((neg_pairs_count,2),order='F')
-            pos_s_idx = np.concatenate((pos_classes_idx.reshape((pos_size,1)), pos_classes_idx.reshape((pos_size,1))),axis=1)
+            neg_s_idx = neg_classes_idx.reshape((neg_pairs_count, 2), order='F')
+            pos_s_idx = np.concatenate((pos_classes_idx.reshape((pos_size, 1)), pos_classes_idx.reshape((pos_size, 1))),
+                                       axis=1)
             idx = np.concatenate((neg_s_idx, pos_s_idx))
             return batch_s_t_1, batch_s_t_2, batch_l_t, idx
 
@@ -256,6 +353,7 @@ class SUPSIM:
             self.images = []
             self.image_size = size
             self.use_grayscale = grayscale
+            self.objectsPaths = []
 
         def append(self, o):
             self.data.append(o)
@@ -304,7 +402,7 @@ class SUPSIM:
             batch_fp_2 = np.array([random.choice(sp.superpixels) for sp in batch_fp_classes_2])
             batch_1 = np.concatenate((batch_1, batch_fp_1))
             batch_2 = np.concatenate((batch_2, batch_fp_2))
-            labels = np.concatenate((labels, np.zeros(fp_size ,dtype=np.float32)))
+            labels = np.concatenate((labels, np.zeros(fp_size, dtype=np.float32)))
         if len(self.train.teacher.fn) > 0:
             fn = self.train.teacher.fn
             batch_fn_idx = random.sample(fn, fn_size)
