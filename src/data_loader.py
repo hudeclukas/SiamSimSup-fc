@@ -10,17 +10,52 @@ from array import array
 from skimage import transform
 import sklearn.preprocessing as prep
 
+def repeat_image_on_canvas(image:np.ndarray, canvas:np.ndarray=None) -> np.ndarray:
+    y = image.shape[1] if image.shape[1] < canvas.shape[1] else canvas.shape[1]
+    if canvas.shape[0] > image.shape[0]:
+        times = int(canvas.shape[0] / image.shape[0])
+        remainder = canvas.shape[0] - times * image.shape[0]
+
+        for i in range(times):
+            if i % 2 == 1:
+                img = np.flip(image,0)
+            else:
+                img = image
+            canvas[i*img.shape[0]:(i+1)*img.shape[0],0:y] = img[0:img.shape[0],0:y]
+        img = image if times % 2 == 0 else np.flip(image,0)
+        canvas[times*img.shape[0]:canvas.shape[0], 0:img.shape[1]] = img[0:remainder,0:y]
+    else:
+        canvas[0:canvas.shape[0],0:y] = image[0:canvas.shape[0],0:y]
+
+    times = int(canvas.shape[1] / image.shape[1])
+    remainder = canvas.shape[1] - times * image.shape[1]
+
+    for i in range(1,times):
+        if i % 2 == 1:
+            img = np.flip(canvas[0:canvas.shape[0],0:y], 1)
+        else:
+            img = canvas[0:canvas.shape[0],0:y]
+        canvas[0:canvas.shape[0],i*img.shape[1]:(i+1)*img.shape[1]] = img
+
+    img = canvas[0:canvas.shape[0],0:y] if times % 2 == 0 else np.flip(canvas[0:canvas.shape[0],0:y], 1)
+    canvas[0:canvas.shape[0],times*img.shape[1]:canvas.shape[1]] = img[0:img.shape[0],0:remainder]
+
+    return canvas
 
 def resize_batch_images(batch: list, image_size: tuple) -> np.ndarray:
     return np.asarray([transform.resize(image, image_size, mode="reflect") for image in batch])
 
-def paint_image_on_canvas(image:np.ndarray, canvas_size:list, canvas_value:float, prepscale:bool=True) -> np.ndarray:
+def paint_image_on_canvas(image:np.ndarray, canvas_size:list, canvas_value:float, prepscale:bool=True, repeat_image:bool=False) -> np.ndarray:
     canvas = np.zeros(canvas_size, dtype=np.float32) + canvas_value
 
     x = image.shape[0] if image.shape[0] < canvas_size[0] else canvas_size[0]
     y = image.shape[1] if image.shape[1] < canvas_size[1] else canvas_size[1]
 
-    canvas[0:x,0:y]=image[0:x,0:y]
+    if repeat_image:
+        canvas = repeat_image_on_canvas(image,canvas)
+    else:
+        canvas[0:x, 0:y] = image[0:x, 0:y]
+
     if prepscale:
         canvas = prep.scale(canvas.reshape((canvas_size[0] * canvas_size[1] * canvas_size[2]))).reshape(canvas_size)
 
@@ -199,8 +234,8 @@ class SUPSIM:
         batch_2 = [SUPSIM.read_segment_file(p) for p in batch_2_paths]
 
         if image_size:
-            batch_1 = [paint_image_on_canvas(b, image_size, 0, True) for b in batch_1]
-            batch_2 = [paint_image_on_canvas(b, image_size, 0, True) for b in batch_2]
+            batch_1 = [paint_image_on_canvas(b, image_size, 0, True, True) for b in batch_1]
+            batch_2 = [paint_image_on_canvas(b, image_size, 0, True, True) for b in batch_2]
 
         if return_paths:
             return batch_1, batch_2, labels, batch_1_paths, batch_2_paths
